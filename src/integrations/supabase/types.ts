@@ -78,7 +78,7 @@ export type Database = {
           id: string
           session_number: number | null
           started_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           candidate_name: string
@@ -86,7 +86,7 @@ export type Database = {
           id?: string
           session_number?: number | null
           started_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           candidate_name?: string
@@ -94,7 +94,7 @@ export type Database = {
           id?: string
           session_number?: number | null
           started_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "clinical-session-data";
-const COMPLETION_KEY = "completed-candidates";
 
 const Index = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(() => {
@@ -17,24 +16,6 @@ const Index = () => {
 
   const [isAllSessionsCompleted, setIsAllSessionsCompleted] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Check auth state when component mounts
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        // Handle unauthenticated state
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to access this feature",
-          variant: "destructive",
-        });
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [toast]);
 
   useEffect(() => {
     if (selectedCandidate) {
@@ -47,21 +28,10 @@ const Index = () => {
     if (!selectedCandidate) return;
     
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to check session completion",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { data: sessions, error } = await supabase
         .from('sessions')
         .select('session_number')
-        .eq('candidate_name', selectedCandidate)
-        .eq('user_id', session.data.session.user.id);
+        .eq('candidate_name', selectedCandidate);
 
       if (error) throw error;
 
@@ -75,23 +45,12 @@ const Index = () => {
 
   const handleAddCandidate = async (data: { name: string; date: string; shift: string }) => {
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to add a candidate",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { error } = await supabase
         .from('sessions')
         .insert({
           candidate_name: data.name,
           session_number: 1,
           started_at: new Date().toISOString(),
-          user_id: session.data.session.user.id
         });
 
       if (error) throw error;
@@ -115,23 +74,12 @@ const Index = () => {
     if (!selectedCandidate) return;
 
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to save session",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // First, ensure the session exists or create it
+      // Create or update the session
       const { data: sessionResult, error: sessionError } = await supabase
         .from('sessions')
         .upsert({
           candidate_name: selectedCandidate,
           session_number: sessionData.sessionNumber,
-          user_id: session.data.session.user.id,
           started_at: new Date().toISOString()
         })
         .select()
@@ -143,7 +91,7 @@ const Index = () => {
         throw new Error('Failed to create or update session');
       }
 
-      // Then handle the blocks
+      // Save blocks for the session
       for (const [index, block] of sessionData.blocks.entries()) {
         if (block.startTime || block.endTime || block.notes) {
           const { error: blockError } = await supabase
@@ -179,21 +127,10 @@ const Index = () => {
     if (!selectedCandidate || !isAllSessionsCompleted) return;
 
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign in to mark as complete",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { error } = await supabase
         .from('sessions')
         .update({ ended_at: new Date().toISOString() })
-        .eq('candidate_name', selectedCandidate)
-        .eq('user_id', session.data.session.user.id);
+        .eq('candidate_name', selectedCandidate);
 
       if (error) throw error;
 
@@ -219,12 +156,6 @@ const Index = () => {
     if (!selectedCandidate) return null;
     
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        console.error('No active session found');
-        return null;
-      }
-
       const { data, error } = await supabase
         .from('sessions')
         .select(`
@@ -232,7 +163,6 @@ const Index = () => {
           blocks (*)
         `)
         .eq('candidate_name', selectedCandidate)
-        .eq('user_id', session.data.session.user.id)
         .order('session_number', { ascending: true })
         .limit(1)
         .maybeSingle();
