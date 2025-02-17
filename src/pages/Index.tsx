@@ -21,10 +21,19 @@ const Index = () => {
   const [currentSessionData, setCurrentSessionData] = useState(null);
 
   useEffect(() => {
+    const storedCandidate = localStorage.getItem("selectedCandidate");
+    if (storedCandidate) {
+      setSelectedCandidate(storedCandidate);
+    }
+  }, []);
+
+  useEffect(() => {
     const fetchSessionData = async () => {
       if (selectedCandidate) {
         const data = await getCurrentSessionData();
         setCurrentSessionData(data);
+      } else {
+        setCurrentSessionData(null);
       }
     };
     fetchSessionData();
