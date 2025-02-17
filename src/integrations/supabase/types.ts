@@ -76,6 +76,7 @@ export type Database = {
           candidate_name: string
           ended_at: string | null
           id: string
+          session_id: string | null
           session_number: number | null
           started_at: string
           user_id: string | null
@@ -84,6 +85,7 @@ export type Database = {
           candidate_name: string
           ended_at?: string | null
           id?: string
+          session_id?: string | null
           session_number?: number | null
           started_at?: string
           user_id?: string | null
@@ -92,6 +94,7 @@ export type Database = {
           candidate_name?: string
           ended_at?: string | null
           id?: string
+          session_id?: string | null
           session_number?: number | null
           started_at?: string
           user_id?: string | null
