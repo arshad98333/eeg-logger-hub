@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { SessionHeader } from "./session/SessionHeader";
 import { SessionInfo } from "./session/SessionInfo";
-import { SessionData, SessionLoggingProps } from "@/types/session";
+import { SessionData, SessionLoggingProps, MAX_BLOCKS_PER_SESSION } from "@/types/session";
+import { Plus } from "lucide-react";
 
 const STORAGE_KEY = "clinical-session-data";
 
@@ -29,7 +29,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       sessionId: currentSession === 1 ? "1" : "0",
       impedanceH: "",
       impedanceL: "",
-      blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+      blocks: []
     };
   });
   
@@ -52,7 +52,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
         // Load stored block data from localStorage for this specific session
         const stored = localStorage.getItem(STORAGE_KEY);
-        let storedBlocks = Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false });
+        let storedBlocks: Block[] = [];
         
         if (stored) {
           const allSessions = JSON.parse(stored);
@@ -99,7 +99,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                 sessionId: "0",
                 impedanceH: "",
                 impedanceL: "",
-                blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+                blocks: []
               }));
             }
           }
@@ -116,6 +116,35 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
     loadSessionState();
   }, [candidateName, currentSession]);
+
+  const handleAddBlock = () => {
+    if (sessionData.blocks.length >= MAX_BLOCKS_PER_SESSION) {
+      toast({
+        title: "Maximum Blocks Reached",
+        description: `Cannot add more than ${MAX_BLOCKS_PER_SESSION} blocks per session.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newBlock = { startTime: "", endTime: "", notes: "", isRecording: false };
+    setSessionData(prev => ({
+      ...prev,
+      blocks: [...prev.blocks, newBlock]
+    }));
+
+    // Update localStorage
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const allSessions = stored ? JSON.parse(stored) : {};
+    if (!allSessions[candidateName]) {
+      allSessions[candidateName] = {};
+    }
+    allSessions[candidateName][currentSession] = {
+      ...sessionData,
+      blocks: [...sessionData.blocks, newBlock]
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+  };
 
   const handleBlockChange = async (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
     const newBlocks = [...sessionData.blocks];
@@ -257,6 +286,18 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
               />
             </div>
           ))}
+          
+          {sessionData.blocks.length < MAX_BLOCKS_PER_SESSION && (
+            <Button
+              type="button"
+              onClick={handleAddBlock}
+              className="w-full border-dashed border-2 bg-clinical-50 hover:bg-clinical-100"
+              variant="outline"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Block
+            </Button>
+          )}
         </div>
 
         <div className="mt-6 flex justify-end space-x-4">
