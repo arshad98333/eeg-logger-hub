@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,165 +15,118 @@ interface SessionLoggingProps {
   onSave: (sessionData: any) => void;
 }
 
+interface Block {
+  startTime: string;
+  endTime: string;
+  notes: string;
+  isRecording: boolean;
+}
+
 interface SessionData {
-  id: string;
-  candidate_name: string;
-  session_number: number;
-  impedance_h?: string;
-  impedance_l?: string;
-  blocks: Array<{
-    id?: string;
-    startTime: string;
-    endTime: string;
-    notes: string;
-    isRecording: boolean;
-  }>;
+  candidateName: string;
+  sessionNumber: number;
+  impedanceH: string;
+  impedanceL: string;
+  blocks: Block[];
 }
 
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
   const [currentSession, setCurrentSession] = useState(initialSession);
-  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData>({
+    candidateName,
+    sessionNumber: currentSession,
+    impedanceH: "",
+    impedanceL: "",
+    blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+  });
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    loadSessionData();
-  }, [candidateName, currentSession]);
-
-  const loadSessionData = async () => {
-    try {
-      setIsLoading(true);
-
-      const { data: existingSession, error: fetchError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('candidate_name', candidateName)
-        .eq('session_number', currentSession)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      if (existingSession) {
-        const { data: blocks } = await supabase
-          .from('blocks')
-          .select('*')
-          .eq('session_id', existingSession.id)
-          .order('block_index', { ascending: true });
-
-        setSessionData({
-          ...existingSession,
-          blocks: blocks?.map(block => ({
-            id: block.id,
-            startTime: block.start_time || "",
-            endTime: block.end_time || "",
-            notes: block.notes || "",
-            isRecording: block.is_recording || false,
-          })) || Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-        });
-      } else {
-        const { data: newSession, error: insertError } = await supabase
-          .from('sessions')
-          .insert({
-            candidate_name: candidateName,
-            session_number: currentSession,
-            started_at: new Date().toISOString(),
-            user_id: 'default'
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        if (newSession) {
-          setSessionData({
-            ...newSession,
-            blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading session:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load session data",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
-    if (!sessionData) return;
-
     const newBlocks = [...sessionData.blocks];
     newBlocks[index] = {
       ...newBlocks[index],
       [field]: value,
     };
 
-    setSessionData(prev => prev ? {
+    setSessionData(prev => ({
       ...prev,
       blocks: newBlocks
-    } : null);
+    }));
 
-    saveBlockToDatabase(index, newBlocks[index]);
+    if (field === "isRecording" && value === true) {
+      // Only save to database when recording starts
+      saveBlockToDatabase(index, newBlocks[index]);
+    }
   };
 
-  const saveBlockToDatabase = async (index: number, blockData: any) => {
-    if (!sessionData) return;
-
+  const saveBlockToDatabase = async (index: number, blockData: Block) => {
     try {
-      const data = {
-        session_id: sessionData.id,
-        block_index: index,
-        start_time: blockData.startTime,
-        end_time: blockData.endTime,
-        notes: blockData.notes,
-        is_recording: blockData.isRecording,
-      };
+      const { data: sessionRecord, error: sessionError } = await supabase
+        .from('sessions')
+        .insert({
+          candidate_name: candidateName,
+          session_number: currentSession,
+          started_at: new Date().toISOString(),
+          user_id: 'default'
+        })
+        .select()
+        .single();
 
-      if (blockData.id) {
-        await supabase
-          .from('blocks')
-          .update(data)
-          .eq('id', blockData.id);
-      } else {
-        await supabase
-          .from('blocks')
-          .insert(data)
-          .select();
-      }
+      if (sessionError) throw sessionError;
+
+      const { error: blockError } = await supabase
+        .from('blocks')
+        .insert({
+          session_id: sessionRecord.id,
+          block_index: index,
+          start_time: blockData.startTime,
+          end_time: blockData.endTime,
+          notes: blockData.notes,
+          is_recording: blockData.isRecording,
+        });
+
+      if (blockError) throw blockError;
+
+      toast({
+        title: "Recording Started",
+        description: `Block ${index + 1} recording initiated`,
+      });
     } catch (error) {
       console.error('Error saving block:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start recording",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSessionChange = (direction: 'next' | 'prev') => {
     if (direction === 'next' && currentSession < 14) {
       setCurrentSession(prev => prev + 1);
+      setSessionData(prev => ({
+        ...prev,
+        sessionNumber: currentSession + 1,
+        blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+      }));
     } else if (direction === 'prev' && currentSession > 1) {
       setCurrentSession(prev => prev - 1);
+      setSessionData(prev => ({
+        ...prev,
+        sessionNumber: currentSession - 1,
+        blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+      }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sessionData) return;
-    
     onSave(sessionData);
     toast({
       title: "Success",
       description: "Session saved successfully",
     });
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-pulse text-clinical-800">Loading session data...</div>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 animate-slide-up px-4 md:px-0">
@@ -209,16 +163,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         </div>
 
         <div className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="sessionId">Session ID</Label>
-            <Input
-              id="sessionId"
-              placeholder="Enter session ID (e.g., AR0007)"
-              value={sessionData?.id || ""}
-              readOnly
-            />
-          </div>
-
           <div className="space-y-4">
             <h4 className="text-lg font-medium text-clinical-800">Impedance Values</h4>
             <div className="grid grid-cols-2 gap-4">
@@ -227,11 +171,11 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                 <Input
                   id="impedanceH"
                   placeholder="H-value"
-                  value={sessionData?.impedance_h || ""}
-                  onChange={(e) => setSessionData(prev => prev ? {
+                  value={sessionData.impedanceH}
+                  onChange={(e) => setSessionData(prev => ({
                     ...prev,
-                    impedance_h: e.target.value
-                  } : null)}
+                    impedanceH: e.target.value
+                  }))}
                 />
               </div>
               <div className="space-y-2">
@@ -239,11 +183,11 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                 <Input
                   id="impedanceL"
                   placeholder="L-value"
-                  value={sessionData?.impedance_l || ""}
-                  onChange={(e) => setSessionData(prev => prev ? {
+                  value={sessionData.impedanceL}
+                  onChange={(e) => setSessionData(prev => ({
                     ...prev,
-                    impedance_l: e.target.value
-                  } : null)}
+                    impedanceL: e.target.value
+                  }))}
                 />
               </div>
             </div>
@@ -251,14 +195,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         </div>
 
         <div className="space-y-4 mt-6">
-          {sessionData?.blocks.map((block, index) => (
+          {sessionData.blocks.map((block, index) => (
             <div key={index} className="border rounded-lg p-4 bg-clinical-50">
               <TimeBlock
                 index={index}
                 startTime={block.startTime}
                 endTime={block.endTime}
                 notes={block.notes}
-                sessionId={sessionData.id}
+                sessionId={`${candidateName}-${currentSession}-${index}`}
                 onChange={handleBlockChange}
               />
             </div>

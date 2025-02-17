@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,19 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
   const toggleRecording = () => {
     const newRecordingState = !isRecording;
     setIsRecording(newRecordingState);
+    
+    if (newRecordingState) {
+      // If starting recording, set current time as start time
+      const now = new Date();
+      const timeString = now.toTimeString().split(' ')[0];
+      onChange(index, "startTime", timeString);
+    } else {
+      // If stopping recording, set current time as end time
+      const now = new Date();
+      const timeString = now.toTimeString().split(' ')[0];
+      onChange(index, "endTime", timeString);
+    }
+    
     onChange(index, "isRecording", newRecordingState);
   };
 
@@ -34,14 +47,14 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
           onClick={toggleRecording}
           className="relative"
         >
-          {!isRecording && (
+          {!isRecording && !startTime && !endTime && (
             <Circle className="h-6 w-6 text-gray-500" />
           )}
           {isRecording && (
             <CheckCircle2 className="h-6 w-6 text-green-500 animate-pulse" />
           )}
-          {!isRecording && startTime && endTime && (
-            <XCircle className="h-6 w-6 text-red-500 animate-pulse" />
+          {!isRecording && (startTime || endTime) && (
+            <XCircle className="h-6 w-6 text-red-500" />
           )}
         </Button>
       </div>
@@ -55,6 +68,7 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
             step="1"
             value={startTime}
             onChange={(e) => onChange(index, "startTime", e.target.value)}
+            readOnly={isRecording}
           />
         </div>
         <div className="space-y-2">
@@ -65,6 +79,7 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
             step="1"
             value={endTime}
             onChange={(e) => onChange(index, "endTime", e.target.value)}
+            readOnly={isRecording}
           />
         </div>
       </div>
