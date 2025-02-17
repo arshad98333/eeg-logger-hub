@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,13 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
   };
 
+  const validateTimeValue = (time: string) => {
+    if (!time) return null;
+    // Check if the time string matches the format HH:mm:ss
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+    return timeRegex.test(time) ? time : null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -100,9 +108,18 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
 
     try {
+      // Filter out blocks with empty time values
+      const validBlocks = sessionData.blocks.map((block, index) => ({
+        startTime: validateTimeValue(block.startTime),
+        endTime: validateTimeValue(block.endTime),
+        notes: block.notes || '',
+        isRecording: false,
+        block_index: index
+      }));
+
       onSave({
         ...sessionData,
-        sessionNumber: currentSession
+        blocks: validBlocks.filter(block => block.startTime !== null || block.endTime !== null || block.notes)
       });
 
       toast({
