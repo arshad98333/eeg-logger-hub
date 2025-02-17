@@ -19,38 +19,80 @@ const Index = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check auth state when component mounts
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        // Handle unauthenticated state
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to access this feature",
+          variant: "destructive",
+        });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [toast]);
+
+  useEffect(() => {
     if (selectedCandidate) {
       localStorage.setItem("selectedCandidate", selectedCandidate);
       checkSessionCompletion();
     }
   }, [selectedCandidate]);
 
-  const checkSessionCompletion = () => {
+  const checkSessionCompletion = async () => {
     if (!selectedCandidate) return;
     
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
+    try {
+      const { data: sessions, error } = await supabase
+        .from('sessions')
+        .select('session_number')
+        .eq('candidate_name', selectedCandidate);
 
-    const allSessions = JSON.parse(stored);
-    const candidateData = allSessions[selectedCandidate];
-    
-    if (!candidateData) return;
+      if (error) throw error;
 
-    const hasAllSessions = Array.from({ length: 14 }, (_, i) => i + 1)
-      .every(sessionNum => candidateData[sessionNum]);
+      const hasAllSessions = sessions && sessions.length === 14;
+      setIsAllSessionsCompleted(hasAllSessions);
+    } catch (error) {
+      console.error('Error checking session completion:', error);
+      // Fallback to local storage
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
 
-    setIsAllSessionsCompleted(hasAllSessions);
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[selectedCandidate];
+      
+      if (!candidateData) return;
+
+      const hasAllSessions = Array.from({ length: 14 }, (_, i) => i + 1)
+        .every(sessionNum => candidateData[sessionNum]);
+
+      setIsAllSessionsCompleted(hasAllSessions);
+    }
   };
 
   const handleAddCandidate = async (data: { name: string; date: string; shift: string }) => {
     try {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to add a candidate",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('sessions')
         .insert({
           candidate_name: data.name,
           session_number: 1,
           started_at: new Date().toISOString(),
-          user_id: 'default'  // We'll update this when auth is implemented
+          user_id: session.data.session.user.id
         });
 
       if (error) throw error;
@@ -74,13 +116,22 @@ const Index = () => {
     if (!selectedCandidate) return;
 
     try {
-      // First, save to Supabase
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to save session",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: sessionResult, error: sessionError } = await supabase
         .from('sessions')
         .upsert({
           candidate_name: selectedCandidate,
           session_number: sessionData.sessionNumber,
-          user_id: 'default', // We'll update this when auth is implemented
+          user_id: session.data.session.user.id,
           started_at: new Date().toISOString()
         })
         .select()
@@ -88,7 +139,6 @@ const Index = () => {
 
       if (sessionError) throw sessionError;
 
-      // Then save blocks
       const blockPromises = sessionData.blocks.map(async (block: any, index: number) => {
         if (block.startTime || block.endTime || block.notes) {
           const { error: blockError } = await supabase
@@ -108,18 +158,6 @@ const Index = () => {
 
       await Promise.all(blockPromises);
 
-      // Update local storage
-      const existingData = localStorage.getItem(STORAGE_KEY);
-      const allSessions = existingData ? JSON.parse(existingData) : {};
-      
-      allSessions[selectedCandidate] = {
-        ...allSessions[selectedCandidate],
-        [sessionData.sessionNumber]: sessionData
-      };
-      
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
-      checkSessionCompletion();
-      
       toast({
         title: "Session Saved",
         description: "Session data has been successfully saved",
@@ -138,26 +176,22 @@ const Index = () => {
     if (!selectedCandidate || !isAllSessionsCompleted) return;
 
     try {
-      // Update all sessions for this candidate as completed
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to mark as complete",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('sessions')
         .update({ ended_at: new Date().toISOString() })
         .eq('candidate_name', selectedCandidate);
 
       if (error) throw error;
-
-      // Update local storage
-      const completedCandidates = localStorage.getItem(COMPLETION_KEY);
-      const completed = completedCandidates ? JSON.parse(completedCandidates) : [];
-      completed.push(selectedCandidate);
-      localStorage.setItem(COMPLETION_KEY, JSON.stringify(completed));
-
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const allSessions = JSON.parse(stored);
-        delete allSessions[selectedCandidate];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
-      }
 
       localStorage.removeItem("selectedCandidate");
       setSelectedCandidate(null);
@@ -190,23 +224,13 @@ const Index = () => {
         .eq('candidate_name', selectedCandidate)
         .order('session_number', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-
       return data;
     } catch (error) {
       console.error('Error fetching session data:', error);
-      // Fallback to local storage
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return null;
-
-      const allSessions = JSON.parse(stored);
-      const candidateData = allSessions[selectedCandidate];
-      
-      if (!candidateData) return null;
-
-      return Object.values(candidateData)[0];
+      return null;
     }
   };
 
