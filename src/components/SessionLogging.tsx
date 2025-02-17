@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +34,6 @@ interface SessionData {
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
   const [currentSession, setCurrentSession] = useState(initialSession);
   const [sessionData, setSessionData] = useState<SessionData>(() => {
-    // Initialize from localStorage if available
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const allSessions = JSON.parse(stored);
@@ -55,7 +53,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   
   const { toast } = useToast();
 
-  // Load session data when switching sessions
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -64,7 +61,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       if (candidateData && candidateData[currentSession]) {
         setSessionData(candidateData[currentSession]);
       } else {
-        // Initialize new session
         setSessionData({
           candidateName,
           sessionNumber: currentSession,
@@ -76,7 +72,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
   }, [currentSession, candidateName]);
 
-  const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
+  const handleBlockChange = async (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
     const newBlocks = [...sessionData.blocks];
     newBlocks[index] = {
       ...newBlocks[index],
@@ -90,7 +86,18 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     
     setSessionData(newSessionData);
 
-    // Save to localStorage on every change
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .update({ current_block: index + 1 })
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating current block:', error);
+    }
+
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     allSessions[candidateName] = {
@@ -160,7 +167,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceH: e.target.value };
                     setSessionData(newData);
-                    // Save to localStorage
                     const stored = localStorage.getItem(STORAGE_KEY);
                     const allSessions = stored ? JSON.parse(stored) : {};
                     allSessions[candidateName] = {
@@ -180,7 +186,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceL: e.target.value };
                     setSessionData(newData);
-                    // Save to localStorage
                     const stored = localStorage.getItem(STORAGE_KEY);
                     const allSessions = stored ? JSON.parse(stored) : {};
                     allSessions[candidateName] = {
