@@ -28,7 +28,6 @@ export const SessionActions = ({
       });
       return false;
     }
-
     return true;
   };
 
@@ -36,9 +35,7 @@ export const SessionActions = ({
     if (!validateSessionData()) return;
 
     try {
-      console.log('Session Data being shared:', sessionData); // Debug log
       const formattedText = formatSessionData(sessionData);
-      console.log('Formatted text:', formattedText); // Debug log
       const encodedText = encodeURIComponent(formattedText);
       window.open(`https://wa.me/?text=${encodedText}`, '_blank');
       
@@ -91,19 +88,16 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: any) => {
-    console.log('Raw session data:', data); // Debug log
-
     let formattedText = `Session : ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
-    formattedText += `Session ID : ${selectedCandidate}\n`;
+    formattedText += `Session ID : ${data.session_id || selectedCandidate}\n`;
     formattedText += `Impedence : H-${data.impedanceH || 'N/A'}/L-${data.impedanceL || 'N/A'}\n`;
     formattedText += `TIMINGS:\n\n`;
 
     if (data.blocks && Array.isArray(data.blocks)) {
-      data.blocks.forEach((block: any, index: number) => {
-        console.log(`Block ${index} data:`, block); // Debug log
-        if (block && block.startTime && block.endTime) {
-          const start12h = formatTimeTo12Hour(block.startTime);
-          const end12h = formatTimeTo12Hour(block.endTime);
+      data.blocks.forEach((block: any) => {
+        if (block && block.start_time && block.end_time) {
+          const start12h = formatTimeTo12Hour(block.start_time);
+          const end12h = formatTimeTo12Hour(block.end_time);
           formattedText += `${start12h}\t${end12h}\n`;
         }
       });

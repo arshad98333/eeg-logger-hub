@@ -5,12 +5,26 @@ interface SessionData {
   sessionNumber: number;
   impedanceH: string;
   impedanceL: string;
+  session_id: string;
   blocks: {
-    startTime: string;
-    endTime: string;
+    start_time: string;
+    end_time: string;
     notes: string;
   }[];
 }
+
+const formatTimeTo12Hour = (time24: string) => {
+  if (!time24) return '';
+  try {
+    const [hours, minutes, seconds] = time24.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const hour12 = hour % 12 || 12;
+    return `${String(hour12).padStart(2, '0')}:${minutes}:${seconds || '00'} ${ampm}`;
+  } catch {
+    return '';
+  }
+};
 
 export const generateSessionPDF = (candidateName: string, sessionData: SessionData) => {
   const doc = new jsPDF();
@@ -41,7 +55,8 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   doc.text("Session Information", 15, 85);
   doc.setFont("helvetica", "normal");
   doc.text(`Session: ${String(sessionData.sessionNumber).padStart(2, '0')}`, 25, 93);
-  doc.text(`Impedance: H-${sessionData.impedanceH}/L-${sessionData.impedanceL}`, 25, 100);
+  doc.text(`Session ID: ${sessionData.session_id || candidateName}`, 25, 100);
+  doc.text(`Impedance: H-${sessionData.impedanceH || 'N/A'}/L-${sessionData.impedanceL || 'N/A'}`, 120, 100);
   
   // Timings Box
   doc.setFillColor(249, 250, 251);
@@ -54,9 +69,10 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   
   let yPosition = 130;
   sessionData.blocks.forEach((block, index) => {
-    if (block.startTime && block.endTime) {
-      doc.text(`Block ${index}:`, 25, yPosition);
-      doc.text(`${block.startTime}  -  ${block.endTime}`, 60, yPosition);
+    if (block.start_time && block.end_time) {
+      const start12h = formatTimeTo12Hour(block.start_time);
+      const end12h = formatTimeTo12Hour(block.end_time);
+      doc.text(`${start12h}  -  ${end12h}`, 25, yPosition);
       yPosition += 8;
     }
   });
@@ -73,10 +89,12 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   yPosition = 215;
   sessionData.blocks.forEach((block, index) => {
     if (block.notes) {
-      doc.text(`Block ${index}:`, 25, yPosition);
       const splitNotes = doc.splitTextToSize(block.notes, 150);
-      doc.text(splitNotes, 60, yPosition);
+      doc.text(splitNotes, 25, yPosition);
       yPosition += 8 * (splitNotes.length || 1) + 2;
+    } else {
+      doc.text("NO NOTES", 25, yPosition);
+      yPosition += 8;
     }
   });
   
