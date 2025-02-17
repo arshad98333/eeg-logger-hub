@@ -33,12 +33,6 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchAnalysis();
-    const interval = setInterval(fetchAnalysis, 30 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   const calculateCompletionRate = (candidate: AnalysisProps['data'][0]) => {
     let totalCompletedBlocks = 0;
     let totalExpectedBlocks = 0;
@@ -66,22 +60,11 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
 
       if (error) {
         console.error('Error fetching analysis:', error);
-        // If table doesn't exist or no data, trigger analysis
-        if (error.code === '42P01' || error.code === 'PGRST116') {
-          console.log("No analysis data found, triggering analysis...");
-          await triggerAnalysis();
-          return;
-        }
         throw error;
       }
 
-      if (!analysisData || analysisData.length === 0) {
-        console.log("No analysis data found, triggering analysis...");
-        await triggerAnalysis();
-      } else {
-        console.log(`Fetched ${analysisData.length} analysis records`);
-        setAnalysis(analysisData);
-      }
+      console.log(`Fetched ${analysisData?.length || 0} analysis records`);
+      setAnalysis(analysisData || []);
     } catch (error: any) {
       console.error('Error in fetchAnalysis:', error);
       toast({
