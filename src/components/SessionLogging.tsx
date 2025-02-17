@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,28 +34,14 @@ interface SessionData {
 }
 
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
-  const [currentSession, setCurrentSession] = useState(() => {
-    const storedSession = localStorage.getItem(CURRENT_SESSION_KEY);
-    return storedSession ? parseInt(storedSession) : initialSession;
-  });
-
-  const [sessionData, setSessionData] = useState<SessionData>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const allSessions = JSON.parse(stored);
-      const candidateData = allSessions[candidateName];
-      if (candidateData && candidateData[currentSession]) {
-        return candidateData[currentSession];
-      }
-    }
-    return {
-      candidateName,
-      sessionNumber: currentSession,
-      sessionId: '',
-      impedanceH: "",
-      impedanceL: "",
-      blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-    };
+  const [currentSession, setCurrentSession] = useState(initialSession);
+  const [sessionData, setSessionData] = useState<SessionData>({
+    candidateName,
+    sessionNumber: currentSession,
+    sessionId: '',
+    impedanceH: '',
+    impedanceL: '',
+    blocks: Array(7).fill({ startTime: '', endTime: '', notes: '', isRecording: false })
   });
   
   const { toast } = useToast();
@@ -65,26 +50,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     localStorage.setItem(CURRENT_SESSION_KEY, currentSession.toString());
   }, [currentSession]);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const allSessions = JSON.parse(stored);
-      const candidateData = allSessions[candidateName];
-      if (candidateData && candidateData[currentSession]) {
-        setSessionData(candidateData[currentSession]);
-      } else {
-        setSessionData({
-          candidateName,
-          sessionNumber: currentSession,
-          sessionId: '',
-          impedanceH: "",
-          impedanceL: "",
-          blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-        });
-      }
-    }
-  }, [currentSession, candidateName]);
-
   const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
     const newBlocks = [...sessionData.blocks];
     newBlocks[index] = {
@@ -92,43 +57,49 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       [field]: value,
     };
 
-    const newSessionData = {
-      ...sessionData,
+    setSessionData(prevData => ({
+      ...prevData,
       blocks: newBlocks
-    };
-    
-    setSessionData(newSessionData);
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const allSessions = stored ? JSON.parse(stored) : {};
-    allSessions[candidateName] = {
-      ...allSessions[candidateName],
-      [currentSession]: newSessionData
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+    }));
   };
 
   const handleSessionChange = (direction: 'next' | 'prev') => {
     if (direction === 'next' && currentSession < 14) {
       setCurrentSession(prev => prev + 1);
+      setSessionData({
+        candidateName,
+        sessionNumber: currentSession + 1,
+        sessionId: '',
+        impedanceH: '',
+        impedanceL: '',
+        blocks: Array(7).fill({ startTime: '', endTime: '', notes: '', isRecording: false })
+      });
     } else if (direction === 'prev' && currentSession > 1) {
       setCurrentSession(prev => prev - 1);
+      setSessionData({
+        candidateName,
+        sessionNumber: currentSession - 1,
+        sessionId: '',
+        impedanceH: '',
+        impedanceL: '',
+        blocks: Array(7).fill({ startTime: '', endTime: '', notes: '', isRecording: false })
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!sessionData.sessionId) {
+      toast({
+        title: "Error",
+        description: "Please enter a Session ID",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // Update session_id in Supabase
-      const { error: updateError } = await supabase
-        .from('sessions')
-        .update({ session_id: sessionData.sessionId })
-        .eq('candidate_name', candidateName)
-        .eq('session_number', currentSession);
-
-      if (updateError) throw updateError;
-
       onSave({
         ...sessionData,
         sessionNumber: currentSession
@@ -192,13 +163,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
               onChange={(e) => {
                 const newData = { ...sessionData, sessionId: e.target.value };
                 setSessionData(newData);
-                const stored = localStorage.getItem(STORAGE_KEY);
-                const allSessions = stored ? JSON.parse(stored) : {};
-                allSessions[candidateName] = {
-                  ...allSessions[candidateName],
-                  [currentSession]: newData
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
               }}
               className="max-w-xs"
             />
@@ -216,13 +180,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceH: e.target.value };
                     setSessionData(newData);
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    const allSessions = stored ? JSON.parse(stored) : {};
-                    allSessions[candidateName] = {
-                      ...allSessions[candidateName],
-                      [currentSession]: newData
-                    };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
                   }}
                 />
               </div>
@@ -235,13 +192,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceL: e.target.value };
                     setSessionData(newData);
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    const allSessions = stored ? JSON.parse(stored) : {};
-                    allSessions[candidateName] = {
-                      ...allSessions[candidateName],
-                      [currentSession]: newData
-                    };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
                   }}
                 />
               </div>

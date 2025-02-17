@@ -5,20 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { STORAGE_KEY, CURRENT_SESSION_KEY } from "@/components/SessionLogging";
 
 export const useSessionManagement = () => {
-  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(() => {
-    const stored = localStorage.getItem("selectedCandidate");
-    return stored ? stored : null;
-  });
-
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [isAllSessionsCompleted, setIsAllSessionsCompleted] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (selectedCandidate) {
-      localStorage.setItem("selectedCandidate", selectedCandidate);
-      checkSessionCompletion();
-    }
-  }, [selectedCandidate]);
 
   const checkSessionCompletion = async () => {
     if (!selectedCandidate) return;
@@ -42,6 +31,9 @@ export const useSessionManagement = () => {
 
   const handleAddCandidate = async (data: { name: string; date: string; shift: string }) => {
     try {
+      // First, clear any existing data
+      localStorage.clear();
+      
       const { error } = await supabase
         .from('sessions')
         .insert({
@@ -53,11 +45,12 @@ export const useSessionManagement = () => {
       if (error) throw error;
 
       setSelectedCandidate(data.name);
-      localStorage.setItem(CURRENT_SESSION_KEY, "1"); // Reset to session 1
+      localStorage.setItem("selectedCandidate", data.name);
+      localStorage.setItem(CURRENT_SESSION_KEY, "1");
       
       toast({
-        title: "Candidate Added",
-        description: "New candidate has been successfully added",
+        title: "New Candidate Added",
+        description: "You can now start session 1",
       });
     } catch (error) {
       console.error('Error adding candidate:', error);
@@ -73,6 +66,7 @@ export const useSessionManagement = () => {
     if (!selectedCandidate) return;
 
     try {
+      // First delete any existing session and its blocks
       const { data: existingSession } = await supabase
         .from('sessions')
         .select('id')
@@ -81,60 +75,21 @@ export const useSessionManagement = () => {
         .maybeSingle();
 
       if (existingSession) {
-        // Update existing session
-        const { error: updateError } = await supabase
-          .from('sessions')
-          .update({ 
-            session_id: sessionData.sessionId,
-            ended_at: null // Reset ended_at when updating
-          })
-          .eq('id', existingSession.id);
-
-        if (updateError) throw updateError;
-
-        // Delete existing blocks for this session
-        const { error: deleteBlocksError } = await supabase
+        // Delete existing blocks
+        await supabase
           .from('blocks')
           .delete()
           .eq('session_id', existingSession.id);
 
-        if (deleteBlocksError) throw deleteBlocksError;
-
-        // Insert new blocks
-        for (const [index, block] of sessionData.blocks.entries()) {
-          if (block.startTime || block.endTime || block.notes) {
-            const { error: blockError } = await supabase
-              .from('blocks')
-              .insert({
-                session_id: existingSession.id,
-                block_index: index,
-                start_time: block.startTime || null,
-                end_time: block.endTime || null,
-                notes: block.notes || null,
-                is_recording: block.isRecording || false
-              });
-
-            if (blockError) throw blockError;
-          }
-        }
-
-        if (sessionData.sessionNumber === 14) {
-          setIsAllSessionsCompleted(true);
-          toast({
-            title: "Session Updated",
-            description: "Session 14 is complete. You can now mark all sessions as complete.",
-          });
-        } else {
-          toast({
-            title: "Session Updated",
-            description: "You can proceed to the next session",
-          });
-        }
-        return;
+        // Delete existing session
+        await supabase
+          .from('sessions')
+          .delete()
+          .eq('id', existingSession.id);
       }
 
       // Create new session
-      const { data: sessionResult, error: sessionError } = await supabase
+      const { data: newSession, error: sessionError } = await supabase
         .from('sessions')
         .insert({
           candidate_name: selectedCandidate,
@@ -147,38 +102,34 @@ export const useSessionManagement = () => {
 
       if (sessionError) throw sessionError;
 
-      if (!sessionResult) {
-        throw new Error('Failed to create session');
-      }
-
-      // Insert blocks for new session
+      // Insert blocks exactly as they are
       for (const [index, block] of sessionData.blocks.entries()) {
         if (block.startTime || block.endTime || block.notes) {
           const { error: blockError } = await supabase
             .from('blocks')
             .insert({
-              session_id: sessionResult.id,
+              session_id: newSession.id,
               block_index: index,
-              start_time: block.startTime || null,
-              end_time: block.endTime || null,
-              notes: block.notes || null,
-              is_recording: block.isRecording || false
+              start_time: block.startTime,
+              end_time: block.endTime,
+              notes: block.notes,
+              is_recording: false
             });
 
           if (blockError) throw blockError;
         }
       }
 
-      toast({
-        title: "Session Saved",
-        description: "Session data has been successfully saved",
-      });
-      
       if (sessionData.sessionNumber === 14) {
         setIsAllSessionsCompleted(true);
         toast({
-          title: "All Sessions Complete",
-          description: "You can now mark all sessions as complete",
+          title: "Final Session Saved",
+          description: "Session 14 complete. You can now mark all sessions as complete.",
+        });
+      } else {
+        toast({
+          title: "Session Saved",
+          description: `Session ${sessionData.sessionNumber} saved successfully.`,
         });
       }
     } catch (error) {
@@ -196,23 +147,23 @@ export const useSessionManagement = () => {
 
     try {
       // Mark all sessions as ended
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('sessions')
         .update({ ended_at: new Date().toISOString() })
         .eq('candidate_name', selectedCandidate);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      // Clear all local storage
-      localStorage.clear(); // This removes ALL localStorage data
+      // Clear ALL localStorage data
+      localStorage.clear();
       
-      // Reset states
+      // Reset all states
       setSelectedCandidate(null);
       setIsAllSessionsCompleted(false);
 
       toast({
-        title: "Sessions Completed",
-        description: "All sessions have been marked as complete and data cleared. You can now start with a new candidate.",
+        title: "All Sessions Completed",
+        description: "All data has been cleared. You can start with a new candidate.",
       });
     } catch (error) {
       console.error('Error marking as complete:', error);
