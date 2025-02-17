@@ -5,14 +5,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { RealtimeTracker } from "@/components/dashboard/RealtimeTracker";
 import { PerformanceAnalysis } from "@/components/dashboard/PerformanceAnalysis";
 
+interface Block {
+  block_index: number;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+interface Session {
+  session_number: number;
+  blocks: Block[];
+}
+
+interface CandidateSession {
+  candidate_name: string;
+  session_number: number;
+  blocks: Block[];
+}
+
 const Dashboard = () => {
   const [candidatesData, setCandidatesData] = useState<any[]>([]);
 
   useEffect(() => {
-    // Initial fetch
     fetchCandidatesData();
 
-    // Set up real-time subscription
     const channel = supabase
       .channel('session-updates')
       .on(
@@ -41,7 +56,7 @@ const Dashboard = () => {
           candidate_name,
           session_number,
           blocks (
-            notes,
+            block_index,
             start_time,
             end_time
           )
@@ -50,55 +65,46 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Process data to group by candidate
-      const processedData = processCandidateData(data);
+      const processedData = processCandidateData(data as CandidateSession[]);
       setCandidatesData(processedData);
     } catch (error) {
       console.error('Error fetching candidate data:', error);
     }
   };
 
-  const processCandidateData = (data: any[]) => {
-    const candidateMap = new Map();
-
-    data.forEach(session => {
-      if (!candidateMap.has(session.candidate_name)) {
-        candidateMap.set(session.candidate_name, {
-          name: session.candidate_name,
-          sessions: new Set(),
-          totalBlocks: 0,
-          completedBlocks: 0
-        });
+  const processCandidateData = (data: CandidateSession[]) => {
+    const candidateGroups = data.reduce((groups: { [key: string]: Session[] }, session) => {
+      if (!groups[session.candidate_name]) {
+        groups[session.candidate_name] = [];
       }
+      groups[session.candidate_name].push({
+        session_number: session.session_number,
+        blocks: session.blocks || []
+      });
+      return groups;
+    }, {});
 
-      const candidate = candidateMap.get(session.candidate_name);
-      candidate.sessions.add(session.session_number);
-      
-      if (session.blocks) {
-        session.blocks.forEach((block: any) => {
-          candidate.totalBlocks++;
-          if (block.start_time && block.end_time) {
-            candidate.completedBlocks++;
-          }
-        });
-      }
-    });
+    return Object.entries(candidateGroups).map(([name, sessions]) => {
+      const sessionCount = sessions.length;
+      const progress = (sessionCount / 14) * 100;
 
-    return Array.from(candidateMap.values())
-      .map(candidate => ({
-        ...candidate,
-        sessionCount: candidate.sessions.size,
-        progress: (candidate.sessions.size / 14) * 100,
-        status: getCompletionStatus(candidate.sessions.size)
-      }))
-      .sort((a, b) => b.sessionCount - a.sessionCount);
+      const sortedSessions = sessions.sort((a, b) => a.session_number - b.session_number);
+
+      return {
+        name,
+        sessionCount,
+        progress,
+        status: getCompletionStatus(sessionCount),
+        sessions: sortedSessions
+      };
+    }).sort((a, b) => b.sessionCount - a.sessionCount);
   };
 
   const getCompletionStatus = (sessionCount: number) => {
-    if (sessionCount >= 14) return { color: 'green', opacity: 1 };
-    if (sessionCount >= 13) return { color: 'green', opacity: 0.75 };
-    if (sessionCount >= 12) return { color: 'green', opacity: 0.5 };
-    return { color: 'gray', opacity: 0.3 };
+    if (sessionCount >= 14) return { color: '#22c55e', opacity: 1 }; // green-500
+    if (sessionCount >= 13) return { color: '#22c55e', opacity: 0.75 };
+    if (sessionCount >= 12) return { color: '#22c55e', opacity: 0.5 };
+    return { color: '#6b7280', opacity: 0.3 }; // gray-500
   };
 
   return (
