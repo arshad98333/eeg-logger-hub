@@ -1,10 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { CandidateManagement } from "@/components/CandidateManagement";
 import { SessionLogging } from "@/components/SessionLogging";
+import { SessionActions } from "@/components/SessionActions";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { CheckCircle } from "lucide-react";
-import jsPDF from 'jspdf';
+import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "clinical-session-data";
 const COMPLETION_KEY = "completed-candidates";
@@ -42,16 +42,73 @@ const Index = () => {
     setIsAllSessionsCompleted(hasAllSessions);
   };
 
-  const handleAddCandidate = (data: { name: string; date: string; shift: string }) => {
-    setSelectedCandidate(data.name);
-    toast({
-      title: "Candidate Added",
-      description: "New candidate has been successfully added",
-    });
+  const handleAddCandidate = async (data: { name: string; date: string; shift: string }) => {
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .insert({
+          candidate_name: data.name,
+          session_number: 1,
+          started_at: new Date().toISOString(),
+          user_id: 'default'  // We'll update this when auth is implemented
+        });
+
+      if (error) throw error;
+
+      setSelectedCandidate(data.name);
+      toast({
+        title: "Candidate Added",
+        description: "New candidate has been successfully added",
+      });
+    } catch (error) {
+      console.error('Error adding candidate:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add candidate",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSaveSession = (sessionData: any) => {
-    if (selectedCandidate) {
+  const handleSaveSession = async (sessionData: any) => {
+    if (!selectedCandidate) return;
+
+    try {
+      // First, save to Supabase
+      const { data: sessionResult, error: sessionError } = await supabase
+        .from('sessions')
+        .upsert({
+          candidate_name: selectedCandidate,
+          session_number: sessionData.sessionNumber,
+          user_id: 'default', // We'll update this when auth is implemented
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      // Then save blocks
+      const blockPromises = sessionData.blocks.map(async (block: any, index: number) => {
+        if (block.startTime || block.endTime || block.notes) {
+          const { error: blockError } = await supabase
+            .from('blocks')
+            .upsert({
+              session_id: sessionResult.id,
+              block_index: index,
+              start_time: block.startTime || null,
+              end_time: block.endTime || null,
+              notes: block.notes || null,
+              is_recording: block.isRecording || false
+            });
+
+          if (blockError) throw blockError;
+        }
+      });
+
+      await Promise.all(blockPromises);
+
+      // Update local storage
       const existingData = localStorage.getItem(STORAGE_KEY);
       const allSessions = existingData ? JSON.parse(existingData) : {};
       
@@ -62,235 +119,100 @@ const Index = () => {
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
       checkSessionCompletion();
+      
+      toast({
+        title: "Session Saved",
+        description: "Session data has been successfully saved",
+      });
+    } catch (error) {
+      console.error('Error saving session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save session",
+        variant: "destructive",
+      });
     }
-    
-    toast({
-      title: "Session Saved",
-      description: "Session data has been successfully saved",
-    });
   };
 
-  const formatSessionData = (sessionData: any) => {
-    const blocks = sessionData.blocks;
-    let formattedText = `Session : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
-    formattedText += `Session ID : ${selectedCandidate}\n`;
-    formattedText += `Impedence : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n`;
-    formattedText += `TIMINGS:\n\n`;
-
-    blocks.forEach((block: any) => {
-      if (block.startTime && block.endTime) {
-        formattedText += `${block.startTime}\t${block.endTime}\n`;
-      }
-    });
-
-    formattedText += `\nNOTES:\n`;
-    blocks.forEach((block: any) => {
-      formattedText += `${block.notes || 'NO NOTES'}\n`;
-    });
-
-    return formattedText;
-  };
-
-  const handleShareToWhatsApp = () => {
-    if (!selectedCandidate) return;
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-
-    const allSessions = JSON.parse(stored);
-    const candidateData = allSessions[selectedCandidate];
-    
-    if (!candidateData) return;
-
-    const currentSession = Object.values(candidateData)[0] as any;
-    const formattedText = formatSessionData(currentSession);
-    
-    const encodedText = encodeURIComponent(formattedText);
-    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
-  };
-
-  const handleSharePDFViaWhatsApp = async () => {
-    if (!selectedCandidate) return;
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-
-    const allSessions = JSON.parse(stored);
-    const candidateData = allSessions[selectedCandidate];
-    
-    if (!candidateData) return;
-
-    const currentSession = Object.values(candidateData)[0] as any;
-    
-    const doc = new jsPDF();
-    
-    // Header Section
-    doc.setFillColor(240, 240, 240);
-    doc.rect(0, 0, 210, 40, 'F');
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.setTextColor(44, 62, 80);
-    doc.text("Clinical Session Report", 105, 20, { align: "center" });
-    
-    // Candidate Info Box
-    doc.setFillColor(249, 250, 251);
-    doc.rect(10, 45, 190, 25, 'F');
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text("Candidate Details", 15, 55);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Name: ${selectedCandidate}`, 25, 63);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 120, 63);
-    
-    // Session Info Box
-    doc.setFillColor(249, 250, 251);
-    doc.rect(10, 75, 190, 30, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.text("Session Information", 15, 85);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Session: ${String(currentSession.sessionNumber).padStart(2, '0')}`, 25, 93);
-    doc.text(`Session ID: ${selectedCandidate}`, 120, 93);
-    doc.text(`Impedance: H-${currentSession.impedanceH}/L-${currentSession.impedanceL}`, 25, 100);
-    
-    // Timings Box
-    doc.setFillColor(249, 250, 251);
-    doc.rect(10, 110, 190, 80, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("TIMINGS", 15, 120);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    
-    let yPosition = 130;
-    currentSession.blocks.forEach((block: any, index: number) => {
-      if (block.startTime && block.endTime) {
-        doc.text(`Block ${index + 1}:`, 25, yPosition);
-        doc.text(`${block.startTime}  -  ${block.endTime}`, 60, yPosition);
-        yPosition += 8;
-      }
-    });
-    
-    // Notes Box
-    doc.setFillColor(249, 250, 251);
-    doc.rect(10, 195, 190, 80, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("NOTES", 15, 205);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    
-    yPosition = 215;
-    currentSession.blocks.forEach((block: any, index: number) => {
-      const note = block.notes || 'NO NOTES';
-      doc.text(`Block ${index + 1}:`, 25, yPosition);
-      const splitNotes = doc.splitTextToSize(note, 150);
-      doc.text(splitNotes, 60, yPosition);
-      yPosition += 8 * splitNotes.length + 2;
-    });
-    
-    // Footer
-    doc.setFillColor(240, 240, 240);
-    doc.rect(0, 275, 210, 22, 'F');
-    doc.setFontSize(10);
-    doc.setTextColor(128, 128, 128);
-    doc.text("Generated by Clinical Session Logger", 105, 287, { align: "center" });
-    
-    const pdfData = doc.output('datauristring');
-    
-    window.open(`https://wa.me/?text=${encodeURIComponent('Clinical Session Report')}&document=${encodeURIComponent(pdfData)}`, '_blank');
-  };
-
-  const handleMarkAsComplete = () => {
+  const handleMarkAsComplete = async () => {
     if (!selectedCandidate || !isAllSessionsCompleted) return;
 
-    const completedCandidates = localStorage.getItem(COMPLETION_KEY);
-    const completed = completedCandidates ? JSON.parse(completedCandidates) : [];
-    completed.push(selectedCandidate);
-    localStorage.setItem(COMPLETION_KEY, JSON.stringify(completed));
+    try {
+      // Update all sessions for this candidate as completed
+      const { error } = await supabase
+        .from('sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('candidate_name', selectedCandidate);
 
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const allSessions = JSON.parse(stored);
-      delete allSessions[selectedCandidate];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+      if (error) throw error;
+
+      // Update local storage
+      const completedCandidates = localStorage.getItem(COMPLETION_KEY);
+      const completed = completedCandidates ? JSON.parse(completedCandidates) : [];
+      completed.push(selectedCandidate);
+      localStorage.setItem(COMPLETION_KEY, JSON.stringify(completed));
+
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const allSessions = JSON.parse(stored);
+        delete allSessions[selectedCandidate];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+      }
+
+      localStorage.removeItem("selectedCandidate");
+      setSelectedCandidate(null);
+      setIsAllSessionsCompleted(false);
+
+      toast({
+        title: "Sessions Completed",
+        description: "All sessions have been marked as complete",
+      });
+    } catch (error) {
+      console.error('Error marking as complete:', error);
+      toast({
+        title: "Error",
+        description: "Failed to mark sessions as complete",
+        variant: "destructive",
+      });
     }
-
-    localStorage.removeItem("selectedCandidate");
-    setSelectedCandidate(null);
-    setIsAllSessionsCompleted(false);
-
-    toast({
-      title: "Sessions Completed",
-      description: "All sessions have been marked as complete",
-    });
   };
 
-  const handleDownloadPDF = () => {
-    if (!selectedCandidate) return;
+  const getCurrentSessionData = async () => {
+    if (!selectedCandidate) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          blocks (*)
+        `)
+        .eq('candidate_name', selectedCandidate)
+        .order('session_number', { ascending: true })
+        .limit(1)
+        .single();
 
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
+      if (error) throw error;
 
-    const allSessions = JSON.parse(stored);
-    const candidateData = allSessions[selectedCandidate];
-    
-    if (!candidateData) return;
+      return data;
+    } catch (error) {
+      console.error('Error fetching session data:', error);
+      // Fallback to local storage
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return null;
 
-    const currentSession = Object.values(candidateData)[0] as any;
-    
-    const doc = new jsPDF();
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    
-    doc.text("Clinical Session Report", 105, 20, { align: "center" });
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Candidate: ${selectedCandidate}`, 20, 40);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 48);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text(`Session: ${String(currentSession.sessionNumber).padStart(2, '0')}`, 20, 60);
-    doc.text(`Session ID: ${selectedCandidate}`, 20, 68);
-    doc.text(`Impedance: H-${currentSession.impedanceH}/L-${currentSession.impedanceL}`, 20, 76);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("TIMINGS:", 20, 90);
-    doc.setFont("helvetica", "normal");
-    
-    let yPosition = 100;
-    currentSession.blocks.forEach((block: any, index: number) => {
-      if (block.startTime && block.endTime) {
-        doc.text(`${block.startTime}  -  ${block.endTime}`, 20, yPosition);
-        yPosition += 8;
-      }
-    });
-    
-    yPosition += 10;
-    doc.setFont("helvetica", "bold");
-    doc.text("NOTES:", 20, yPosition);
-    doc.setFont("helvetica", "normal");
-    
-    yPosition += 10;
-    currentSession.blocks.forEach((block: any, index: number) => {
-      const note = block.notes || 'NO NOTES';
-      const splitNotes = doc.splitTextToSize(note, 170);
-      doc.text(splitNotes, 20, yPosition);
-      yPosition += 10 * splitNotes.length;
-    });
-    
-    doc.setFontSize(10);
-    doc.setTextColor(128, 128, 128);
-    doc.text("Generated by Clinical Session Logger", 105, 280, { align: "center" });
-    
-    doc.save(`${selectedCandidate}-session-${currentSession.sessionNumber}.pdf`);
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[selectedCandidate];
+      
+      if (!candidateData) return null;
+
+      return Object.values(candidateData)[0];
+    }
   };
 
   return (
     <div className="min-h-screen bg-clinical-100">
-      <div className="container mx-auto py-8 space-y-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <CandidateManagement
           onSelectCandidate={setSelectedCandidate}
           onAddCandidate={handleAddCandidate}
@@ -304,38 +226,12 @@ const Index = () => {
               onSave={handleSaveSession}
             />
             
-            <div className="flex gap-4 justify-end mt-6">
-              <Button 
-                variant="outline" 
-                onClick={handleShareToWhatsApp}
-              >
-                Share Text to WhatsApp
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                onClick={handleDownloadPDF}
-              >
-                Download as PDF
-              </Button>
-
-              <Button 
-                variant="outline" 
-                onClick={handleSharePDFViaWhatsApp}
-              >
-                Share PDF via WhatsApp
-              </Button>
-
-              {isAllSessionsCompleted && (
-                <Button 
-                  onClick={handleMarkAsComplete}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Mark as Complete
-                </Button>
-              )}
-            </div>
+            <SessionActions
+              selectedCandidate={selectedCandidate}
+              sessionData={getCurrentSessionData()}
+              isAllSessionsCompleted={isAllSessionsCompleted}
+              onMarkComplete={handleMarkAsComplete}
+            />
           </>
         )}
       </div>
