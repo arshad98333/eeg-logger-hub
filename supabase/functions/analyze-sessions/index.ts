@@ -12,17 +12,43 @@ const corsHeaders = {
 serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      status: 200,
+      headers: corsHeaders 
+    });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { 
+        status: 405,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 
   try {
     console.log('Starting analysis...');
     
+    // Validate environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { 
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
     }
 
     // Initialize Supabase client
@@ -38,19 +64,47 @@ serve(async (req: Request) => {
 
     if (sessionError) {
       console.error('Error fetching sessions:', sessionError);
-      throw sessionError;
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to fetch sessions',
+          details: sessionError 
+        }),
+        { 
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
     }
 
-    console.log(`Processing ${sessions?.length || 0} sessions...`);
+    if (!sessions || sessions.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: 'No sessions to analyze' 
+        }),
+        { 
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+
+    console.log(`Processing ${sessions.length} sessions...`);
 
     // Group sessions by candidate
-    const candidateData = sessions?.reduce((acc: { [key: string]: any[] }, session: any) => {
+    const candidateData = sessions.reduce((acc: { [key: string]: any[] }, session: any) => {
       if (!acc[session.candidate_name]) {
         acc[session.candidate_name] = [];
       }
       acc[session.candidate_name].push(session);
       return acc;
-    }, {}) || {};
+    }, {});
 
     // Process each candidate's data
     for (const [candidateName, candidateSessions] of Object.entries(candidateData)) {
@@ -59,7 +113,8 @@ serve(async (req: Request) => {
       let totalExpectedBlocks = 0;
       
       candidateSessions.forEach((session: any) => {
-        const completedBlocks = session.blocks.filter((block: any) => 
+        const blocks = session.blocks || [];
+        const completedBlocks = blocks.filter((block: any) => 
           block.start_time && block.end_time
         ).length;
         totalCompletedBlocks += completedBlocks;
@@ -89,7 +144,19 @@ Status: ${totalSessions >= 12 ? "Qualified" : "In Progress"}`;
 
       if (insertError) {
         console.error(`Error inserting analysis for ${candidateName}:`, insertError);
-        throw insertError;
+        return new Response(
+          JSON.stringify({
+            error: 'Failed to save analysis',
+            details: insertError
+          }),
+          { 
+            status: 500,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
       }
     }
 
@@ -99,6 +166,7 @@ Status: ${totalSessions >= 12 ? "Qualified" : "In Progress"}`;
         message: 'Analysis completed successfully' 
       }),
       { 
+        status: 200,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
@@ -111,8 +179,8 @@ Status: ${totalSessions >= 12 ? "Qualified" : "In Progress"}`;
     
     return new Response(
       JSON.stringify({
-        success: false,
-        error: error.message,
+        error: 'Internal server error',
+        message: error.message,
         details: error.stack
       }),
       { 
