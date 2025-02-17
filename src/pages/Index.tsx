@@ -47,10 +47,21 @@ const Index = () => {
     if (!selectedCandidate) return;
     
     try {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to check session completion",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: sessions, error } = await supabase
         .from('sessions')
         .select('session_number')
-        .eq('candidate_name', selectedCandidate);
+        .eq('candidate_name', selectedCandidate)
+        .eq('user_id', session.data.session.user.id);
 
       if (error) throw error;
 
@@ -58,19 +69,7 @@ const Index = () => {
       setIsAllSessionsCompleted(hasAllSessions);
     } catch (error) {
       console.error('Error checking session completion:', error);
-      // Fallback to local storage
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
-
-      const allSessions = JSON.parse(stored);
-      const candidateData = allSessions[selectedCandidate];
-      
-      if (!candidateData) return;
-
-      const hasAllSessions = Array.from({ length: 14 }, (_, i) => i + 1)
-        .every(sessionNum => candidateData[sessionNum]);
-
-      setIsAllSessionsCompleted(hasAllSessions);
+      setIsAllSessionsCompleted(false);
     }
   };
 
@@ -126,6 +125,7 @@ const Index = () => {
         return;
       }
 
+      // First, ensure the session exists or create it
       const { data: sessionResult, error: sessionError } = await supabase
         .from('sessions')
         .upsert({
@@ -139,7 +139,12 @@ const Index = () => {
 
       if (sessionError) throw sessionError;
 
-      const blockPromises = sessionData.blocks.map(async (block: any, index: number) => {
+      if (!sessionResult) {
+        throw new Error('Failed to create or update session');
+      }
+
+      // Then handle the blocks
+      for (const [index, block] of sessionData.blocks.entries()) {
         if (block.startTime || block.endTime || block.notes) {
           const { error: blockError } = await supabase
             .from('blocks')
@@ -154,9 +159,7 @@ const Index = () => {
 
           if (blockError) throw blockError;
         }
-      });
-
-      await Promise.all(blockPromises);
+      }
 
       toast({
         title: "Session Saved",
@@ -189,7 +192,8 @@ const Index = () => {
       const { error } = await supabase
         .from('sessions')
         .update({ ended_at: new Date().toISOString() })
-        .eq('candidate_name', selectedCandidate);
+        .eq('candidate_name', selectedCandidate)
+        .eq('user_id', session.data.session.user.id);
 
       if (error) throw error;
 
@@ -215,6 +219,12 @@ const Index = () => {
     if (!selectedCandidate) return null;
     
     try {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        console.error('No active session found');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('sessions')
         .select(`
@@ -222,6 +232,7 @@ const Index = () => {
           blocks (*)
         `)
         .eq('candidate_name', selectedCandidate)
+        .eq('user_id', session.data.session.user.id)
         .order('session_number', { ascending: true })
         .limit(1)
         .maybeSingle();
