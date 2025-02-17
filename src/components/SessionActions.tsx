@@ -1,7 +1,8 @@
 
 import { Button } from "@/components/ui/button";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Download, Share } from "lucide-react";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
+import { useToast } from "@/components/ui/use-toast";
 
 interface SessionActionsProps {
   selectedCandidate: string | null;
@@ -16,41 +17,70 @@ export const SessionActions = ({
   isAllSessionsCompleted,
   onMarkComplete
 }: SessionActionsProps) => {
+  const { toast } = useToast();
+
   const handleShareToWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
+    if (!selectedCandidate || !sessionData) {
+      toast({
+        title: "Error",
+        description: "No session data available to share",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const formattedText = formatSessionData(sessionData);
     const encodedText = encodeURIComponent(formattedText);
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    
+    toast({
+      title: "Success",
+      description: "WhatsApp sharing window opened",
+    });
   };
 
   const handleDownloadPDF = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
-  };
+    if (!selectedCandidate || !sessionData) {
+      toast({
+        title: "Error",
+        description: "No session data available to download",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const handleSharePDFViaWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    const pdfData = doc.output('datauristring');
-    window.open(`https://wa.me/?text=${encodeURIComponent('Clinical Session Report')}&document=${encodeURIComponent(pdfData)}`, '_blank');
+    try {
+      const doc = generateSessionPDF(selectedCandidate, sessionData);
+      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "PDF downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    }
   };
 
   const formatSessionData = (sessionData: any) => {
     const blocks = sessionData.blocks;
-    let formattedText = `Session : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
-    formattedText += `Session ID : ${selectedCandidate}\n`;
-    formattedText += `Impedence : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n`;
-    formattedText += `TIMINGS:\n\n`;
+    let formattedText = `*Clinical Session Report*\n\n`;
+    formattedText += `*Session* : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
+    formattedText += `*Session ID* : ${selectedCandidate}\n`;
+    formattedText += `*Impedance* : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n\n`;
+    formattedText += `*TIMINGS:*\n\n`;
 
     blocks.forEach((block: any, index: number) => {
       if (block.startTime && block.endTime) {
-        formattedText += `Block ${index}: ${block.startTime}\t${block.endTime}\n`;
+        formattedText += `Block ${index}: ${block.startTime} - ${block.endTime}\n`;
       }
     });
 
-    formattedText += `\nNOTES:\n`;
+    formattedText += `\n*NOTES:*\n`;
     blocks.forEach((block: any, index: number) => {
       formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
     });
@@ -65,7 +95,8 @@ export const SessionActions = ({
         onClick={handleShareToWhatsApp}
         className="w-full sm:w-auto"
       >
-        Share Text to WhatsApp
+        <Share className="mr-2 h-4 w-4" />
+        Share to WhatsApp
       </Button>
       
       <Button 
@@ -73,15 +104,8 @@ export const SessionActions = ({
         onClick={handleDownloadPDF}
         className="w-full sm:w-auto"
       >
-        Download as PDF
-      </Button>
-
-      <Button 
-        variant="outline" 
-        onClick={handleSharePDFViaWhatsApp}
-        className="w-full sm:w-auto"
-      >
-        Share PDF via WhatsApp
+        <Download className="mr-2 h-4 w-4" />
+        Download PDF
       </Button>
 
       {isAllSessionsCompleted && (

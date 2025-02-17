@@ -41,7 +41,6 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   doc.text("Session Information", 15, 85);
   doc.setFont("helvetica", "normal");
   doc.text(`Session: ${String(sessionData.sessionNumber).padStart(2, '0')}`, 25, 93);
-  doc.text(`Session ID: ${candidateName}`, 120, 93);
   doc.text(`Impedance: H-${sessionData.impedanceH}/L-${sessionData.impedanceL}`, 25, 100);
   
   // Timings Box
@@ -73,11 +72,12 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   
   yPosition = 215;
   sessionData.blocks.forEach((block, index) => {
-    const note = block.notes || 'NO NOTES';
-    doc.text(`Block ${index}:`, 25, yPosition);
-    const splitNotes = doc.splitTextToSize(note, 150);
-    doc.text(splitNotes, 60, yPosition);
-    yPosition += 8 * splitNotes.length + 2;
+    if (block.notes) {
+      doc.text(`Block ${index}:`, 25, yPosition);
+      const splitNotes = doc.splitTextToSize(block.notes, 150);
+      doc.text(splitNotes, 60, yPosition);
+      yPosition += 8 * (splitNotes.length || 1) + 2;
+    }
   });
   
   // Footer
