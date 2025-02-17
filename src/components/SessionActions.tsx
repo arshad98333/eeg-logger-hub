@@ -20,10 +20,10 @@ export const SessionActions = ({
   const { toast } = useToast();
 
   const handleShareToWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) {
+    if (!selectedCandidate || !sessionData || !sessionData.blocks) {
       toast({
         title: "Error",
-        description: "No session data available to share",
+        description: "No valid session data available to share",
         variant: "destructive"
       });
       return;
@@ -40,10 +40,10 @@ export const SessionActions = ({
   };
 
   const handleDownloadPDF = () => {
-    if (!selectedCandidate || !sessionData) {
+    if (!selectedCandidate || !sessionData || !sessionData.blocks) {
       toast({
         title: "Error",
-        description: "No session data available to download",
+        description: "No valid session data available to download",
         variant: "destructive"
       });
       return;
@@ -58,6 +58,7 @@ export const SessionActions = ({
         description: "PDF downloaded successfully",
       });
     } catch (error) {
+      console.error('PDF Generation Error:', error);
       toast({
         title: "Error",
         description: "Failed to generate PDF",
@@ -67,22 +68,28 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (sessionData: any) => {
+    if (!sessionData || !sessionData.blocks || !Array.isArray(sessionData.blocks)) {
+      return "Error: Invalid session data";
+    }
+
     const blocks = sessionData.blocks;
     let formattedText = `*Clinical Session Report*\n\n`;
-    formattedText += `*Session* : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
+    formattedText += `*Session* : ${String(sessionData.sessionNumber || '').padStart(2, '0')}\n`;
     formattedText += `*Session ID* : ${selectedCandidate}\n`;
-    formattedText += `*Impedance* : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n\n`;
+    formattedText += `*Impedance* : H-${sessionData.impedanceH || 'N/A'}/L-${sessionData.impedanceL || 'N/A'}\n\n`;
     formattedText += `*TIMINGS:*\n\n`;
 
     blocks.forEach((block: any, index: number) => {
-      if (block.startTime && block.endTime) {
+      if (block && block.startTime && block.endTime) {
         formattedText += `Block ${index}: ${block.startTime} - ${block.endTime}\n`;
       }
     });
 
     formattedText += `\n*NOTES:*\n`;
     blocks.forEach((block: any, index: number) => {
-      formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
+      if (block) {
+        formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
+      }
     });
 
     return formattedText;
