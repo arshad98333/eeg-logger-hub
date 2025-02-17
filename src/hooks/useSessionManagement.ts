@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -195,8 +194,12 @@ export const useSessionManagement = () => {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error('Error fetching session data:', error);
+        return null;
+      }
+      
+      return data || null;
     } catch (error) {
       console.error('Error fetching session data:', error);
       return null;

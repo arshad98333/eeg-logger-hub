@@ -35,12 +35,14 @@ const Index = () => {
               onSave={handleSaveSession}
             />
             
-            <SessionActions
-              selectedCandidate={selectedCandidate}
-              sessionData={getCurrentSessionData()}
-              isAllSessionsCompleted={isAllSessionsCompleted}
-              onMarkComplete={handleMarkAsComplete}
-            />
+            {getCurrentSessionData && (
+              <SessionActions
+                selectedCandidate={selectedCandidate}
+                sessionData={getCurrentSessionData()}
+                isAllSessionsCompleted={isAllSessionsCompleted}
+                onMarkComplete={handleMarkAsComplete}
+              />
+            )}
           </>
         )}
       </div>
