@@ -50,12 +50,25 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           return;
         }
 
+        // Load stored block data from localStorage for this specific session
+        const stored = localStorage.getItem(STORAGE_KEY);
+        let storedBlocks = Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false });
+        
+        if (stored) {
+          const allSessions = JSON.parse(stored);
+          const candidateData = allSessions[candidateName];
+          if (candidateData && candidateData[currentSession]) {
+            storedBlocks = candidateData[currentSession].blocks;
+          }
+        }
+
         if (data) {
           setSessionData(prev => ({
             ...prev,
             sessionId: data.session_id || String(currentSession),
             impedanceH: data.impedance_h || "",
             impedanceL: data.impedance_l || "",
+            blocks: storedBlocks,
           }));
         } else {
           const initialSessionData = {
@@ -139,12 +152,15 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       });
     }
 
+    // Update localStorage with session-specific block data
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
-    allSessions[candidateName] = {
-      ...allSessions[candidateName],
-      [currentSession]: newSessionData
-    };
+    
+    if (!allSessions[candidateName]) {
+      allSessions[candidateName] = {};
+    }
+    
+    allSessions[candidateName][currentSession] = newSessionData;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
   };
 
