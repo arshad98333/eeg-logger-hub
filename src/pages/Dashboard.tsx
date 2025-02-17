@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeTracker } from "@/components/dashboard/RealtimeTracker";
-import { PerformanceAnalysis } from "@/components/dashboard/PerformanceAnalysis";
 
 interface Block {
   block_index: number;
@@ -116,11 +115,6 @@ const Dashboard = () => {
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Real-time Session Tracker</h2>
             <RealtimeTracker data={candidatesData} />
-          </Card>
-
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Performance Analysis</h2>
-            <PerformanceAnalysis data={candidatesData} />
           </Card>
         </div>
       </div>
