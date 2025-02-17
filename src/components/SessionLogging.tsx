@@ -74,7 +74,9 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           .from('sessions')
           .insert({
             candidate_name: candidateName,
-            session_number: currentSession
+            session_number: currentSession,
+            started_at: new Date().toISOString(),
+            user_id: 'default'
           })
           .select()
           .single();

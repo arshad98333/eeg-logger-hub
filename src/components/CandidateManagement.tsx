@@ -73,7 +73,9 @@ export const CandidateManagement = ({
         .from('sessions')
         .insert({
           candidate_name: newName.trim(),
-          session_number: 1
+          session_number: 1,
+          started_at: new Date().toISOString(),
+          user_id: 'default'  // Using 'default' as we don't have authentication
         })
         .select()
         .single();
