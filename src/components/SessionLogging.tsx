@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +18,6 @@ interface SessionData {
   id: string;
   candidate_name: string;
   session_number: number;
-  user_id: string;
   impedance_h?: string;
   impedance_l?: string;
   blocks: Array<{
@@ -37,7 +35,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load session data when component mounts or session changes
   useEffect(() => {
     loadSessionData();
   }, [candidateName, currentSession]);
@@ -45,28 +42,17 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   const loadSessionData = async () => {
     try {
       setIsLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "You must be logged in to record sessions",
-          variant: "destructive",
-        });
-        return;
-      }
 
       const { data: existingSession, error: fetchError } = await supabase
         .from('sessions')
         .select('*')
         .eq('candidate_name', candidateName)
         .eq('session_number', currentSession)
-        .eq('user_id', user.id)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
 
       if (existingSession) {
-        // Load existing session
         const { data: blocks } = await supabase
           .from('blocks')
           .select('*')
@@ -84,13 +70,11 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           })) || Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
         });
       } else {
-        // Create new session
         const { data: newSession, error: insertError } = await supabase
           .from('sessions')
           .insert({
             candidate_name: candidateName,
-            session_number: currentSession,
-            user_id: user.id,
+            session_number: currentSession
           })
           .select()
           .single();
@@ -129,7 +113,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       blocks: newBlocks
     } : null);
 
-    // Debounced save to database
     saveBlockToDatabase(index, newBlocks[index]);
   };
 
@@ -182,25 +165,30 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   };
 
   if (isLoading) {
-    return <div className="animate-pulse">Loading session data...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-pulse text-clinical-800">Loading session data...</div>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 animate-slide-up">
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
+    <form onSubmit={handleSubmit} className="space-y-6 animate-slide-up px-4 md:px-0">
+      <Card className="p-4 md:p-6">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
           <h3 className="text-xl font-semibold">
             Session {currentSession}
           </h3>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => handleSessionChange('prev')}
               disabled={currentSession <= 1}
+              className="px-2 md:px-4"
             >
               <ChevronLeft className="h-4 w-4" />
-              Previous
+              <span className="hidden md:inline ml-1">Previous</span>
             </Button>
             <span className="text-sm font-medium">
               {currentSession} / 14
@@ -210,8 +198,9 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
               variant="outline" 
               onClick={() => handleSessionChange('next')}
               disabled={currentSession >= 14}
+              className="px-2 md:px-4"
             >
-              Next
+              <span className="hidden md:inline mr-1">Next</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
