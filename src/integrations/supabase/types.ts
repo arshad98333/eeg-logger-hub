@@ -71,27 +71,6 @@ export type Database = {
         }
         Relationships: []
       }
-      session_analysis: {
-        Row: {
-          analysis: string
-          candidate_name: string
-          created_at: string
-          id: string
-        }
-        Insert: {
-          analysis: string
-          candidate_name: string
-          created_at?: string
-          id?: string
-        }
-        Update: {
-          analysis?: string
-          candidate_name?: string
-          created_at?: string
-          id?: string
-        }
-        Relationships: []
-      }
       sessions: {
         Row: {
           candidate_name: string

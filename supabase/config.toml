@@ -1,5 +1,2 @@
 
 project_id = "ulllorfmteeclfvehfxi"
-
-[functions.analyze-sessions]
-verify_jwt = false
