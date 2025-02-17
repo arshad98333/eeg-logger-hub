@@ -1,11 +1,49 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from "react";
+import { CandidateManagement } from "@/components/CandidateManagement";
+import { SessionLogging } from "@/components/SessionLogging";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Array<{ name: string; date: string; shift: string }>>([]);
+  const { toast } = useToast();
+
+  const handleAddCandidate = (data: { name: string; date: string; shift: string }) => {
+    // In a real app, this would save to Supabase
+    setCandidates([...candidates, data]);
+    setSelectedCandidate(data.name);
+    toast({
+      title: "Candidate Added",
+      description: "New candidate has been successfully added",
+    });
+  };
+
+  const handleSaveSession = (sessionData: any) => {
+    // In a real app, this would save to Supabase
+    console.log("Saving session:", sessionData);
+    toast({
+      title: "Session Saved",
+      description: "Session data has been successfully saved",
+    });
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-clinical-100">
+      <div className="container mx-auto py-8 space-y-8">
+        <CandidateManagement
+          candidates={candidates}
+          onSelectCandidate={setSelectedCandidate}
+          onAddCandidate={handleAddCandidate}
+        />
+
+        {selectedCandidate && (
+          <SessionLogging
+            candidateName={selectedCandidate}
+            sessionNumber={1}
+            onSave={handleSaveSession}
+          />
+        )}
       </div>
     </div>
   );
