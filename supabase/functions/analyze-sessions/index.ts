@@ -1,4 +1,3 @@
-
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -134,13 +133,17 @@ Status: ${totalSessions >= 12 ? "Qualified" : "In Progress"}`;
       // Store analysis in the session_analysis table
       const { error: insertError } = await supabase
         .from('session_analysis')
-        .upsert({
-          candidate_name: candidateName,
-          analysis,
-          created_at: new Date().toISOString(),
-        }, {
-          onConflict: 'candidate_name'
-        });
+        .upsert(
+          {
+            candidate_name: candidateName,
+            analysis,
+            created_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'candidate_name',
+            ignoreDuplicates: false
+          }
+        );
 
       if (insertError) {
         console.error(`Error inserting analysis for ${candidateName}:`, insertError);
