@@ -85,13 +85,15 @@ export const useSessionManagement = () => {
           .eq('id', existingSession.id);
       }
 
-      // Create new session
+      // Create new session with impedance values
       const { data: newSession, error: sessionError } = await supabase
         .from('sessions')
         .insert({
           candidate_name: selectedCandidate,
           session_number: sessionData.sessionNumber,
           session_id: sessionData.sessionId,
+          impedance_h: sessionData.impedanceH || null,
+          impedance_l: sessionData.impedanceL || null,
           started_at: new Date().toISOString()
         })
         .select()
