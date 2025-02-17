@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -8,8 +7,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { RefreshCw } from "lucide-react";
 
 interface AnalysisProps {
   data: Array<{
@@ -28,13 +29,12 @@ interface AnalysisProps {
 
 export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
   const [analysis, setAnalysis] = useState<any[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Initial fetch
     fetchAnalysis();
 
-    // Set up periodic analysis (random interval between 40min and 1h20m)
     const scheduleNextAnalysis = () => {
       const minInterval = 40 * 60 * 1000; // 40 minutes
       const maxInterval = 80 * 60 * 1000; // 1h20m
@@ -89,6 +89,7 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
 
   const triggerAnalysis = async () => {
     try {
+      setIsAnalyzing(true);
       const response = await supabase.functions.invoke('analyze-sessions');
       if (!response.error) {
         await fetchAnalysis();
@@ -104,11 +105,23 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
         description: "Failed to update analysis",
         variant: "destructive",
       });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end mb-4">
+        <Button 
+          onClick={triggerAnalysis} 
+          disabled={isAnalyzing}
+          className="gap-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
+          {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+        </Button>
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
