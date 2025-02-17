@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Download, Share } from "lucide-react";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface Block {
   startTime: string;
@@ -11,6 +11,7 @@ interface Block {
 }
 
 interface SessionData {
+  candidateName: string;
   sessionNumber: number;
   sessionId: string;
   impedanceH: string;
@@ -20,7 +21,7 @@ interface SessionData {
 
 interface SessionActionsProps {
   selectedCandidate: string | null;
-  sessionData: SessionData;
+  sessionData: SessionData | null;
   isAllSessionsCompleted: boolean;
   onMarkComplete: () => void;
 }
@@ -46,7 +47,7 @@ export const SessionActions = ({
   };
 
   const handleShareToWhatsApp = () => {
-    if (!validateSessionData()) return;
+    if (!validateSessionData() || !sessionData) return;
 
     try {
       const formattedText = formatSessionData(sessionData);
@@ -68,12 +69,14 @@ export const SessionActions = ({
   };
 
   const handleDownloadPDF = () => {
-    if (!validateSessionData()) return;
+    if (!validateSessionData() || !sessionData) return;
 
     try {
       const pdfData = {
-        ...sessionData,
-        session_id: sessionData.sessionId, // Map to expected PDF format
+        sessionNumber: sessionData.sessionNumber,
+        impedanceH: sessionData.impedanceH,
+        impedanceL: sessionData.impedanceL,
+        session_id: sessionData.sessionId,
         blocks: sessionData.blocks.map(block => ({
           start_time: block.startTime,
           end_time: block.endTime,
@@ -81,7 +84,7 @@ export const SessionActions = ({
         }))
       };
       
-      const doc = generateSessionPDF(selectedCandidate, pdfData);
+      const doc = generateSessionPDF(selectedCandidate!, pdfData);
       doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
       
       toast({
@@ -99,15 +102,15 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: SessionData) => {
-    let formattedText = `Session ${data.sessionNumber}\n\n`;
-    formattedText += `Session ID: ${data.sessionId}\n\n`;
+    let formattedText = `Session ${data.sessionNumber}\n`;
+    formattedText += `Session ID: ${data.sessionId}\n`;
     formattedText += `Impedance Values:\n`;
     formattedText += `High: ${data.impedanceH}\n`;
     formattedText += `Low: ${data.impedanceL}\n\n`;
-    formattedText += `Blocks:\n\n`;
+    formattedText += `Blocks:\n`;
 
     data.blocks.forEach((block, index) => {
-      formattedText += `Block ${index}\n`;
+      formattedText += `\nBlock ${index}:\n`;
       if (block.startTime) {
         formattedText += `Start Time: ${block.startTime}\n`;
       }
@@ -117,7 +120,6 @@ export const SessionActions = ({
       if (block.notes && block.notes.trim() !== '') {
         formattedText += `Notes: ${block.notes}\n`;
       }
-      formattedText += '\n';
     });
 
     return formattedText;

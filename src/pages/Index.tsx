@@ -6,6 +6,19 @@ import { Header } from "@/components/Header";
 import { useSessionManagement } from "@/hooks/useSessionManagement";
 import { useState, useEffect } from "react";
 
+interface SessionData {
+  candidateName: string;
+  sessionNumber: number;
+  sessionId: string;
+  impedanceH: string;
+  impedanceL: string;
+  blocks: Array<{
+    startTime: string;
+    endTime: string;
+    notes: string;
+  }>;
+}
+
 const Index = () => {
   const {
     selectedCandidate,
@@ -18,7 +31,7 @@ const Index = () => {
     setSelectedCandidate
   } = useSessionManagement();
 
-  const [currentSessionData, setCurrentSessionData] = useState(null);
+  const [currentSessionData, setCurrentSessionData] = useState<SessionData | null>(null);
 
   useEffect(() => {
     const storedCandidate = localStorage.getItem("selectedCandidate");
@@ -31,7 +44,22 @@ const Index = () => {
     const fetchSessionData = async () => {
       if (selectedCandidate) {
         const data = await getCurrentSessionData();
-        setCurrentSessionData(data);
+        if (data) {
+          setCurrentSessionData({
+            candidateName: selectedCandidate,
+            sessionNumber: data.session_number,
+            sessionId: data.session_id,
+            impedanceH: data.impedance_h || '',
+            impedanceL: data.impedance_l || '',
+            blocks: data.blocks.map((block: any) => ({
+              startTime: block.start_time || '',
+              endTime: block.end_time || '',
+              notes: block.notes || ''
+            }))
+          });
+        } else {
+          setCurrentSessionData(null);
+        }
       } else {
         setCurrentSessionData(null);
       }
