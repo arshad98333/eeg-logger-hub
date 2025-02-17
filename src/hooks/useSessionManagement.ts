@@ -53,6 +53,8 @@ export const useSessionManagement = () => {
       if (error) throw error;
 
       setSelectedCandidate(data.name);
+      localStorage.setItem(CURRENT_SESSION_KEY, "1"); // Reset to session 1
+      
       toast({
         title: "Candidate Added",
         description: "New candidate has been successfully added",
@@ -169,15 +171,18 @@ export const useSessionManagement = () => {
 
       if (error) throw error;
 
+      // Clear all local storage related to the current session
       localStorage.removeItem("selectedCandidate");
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(CURRENT_SESSION_KEY);
       
+      // Reset states
       setSelectedCandidate(null);
       setIsAllSessionsCompleted(false);
 
       toast({
         title: "Sessions Completed",
-        description: "All sessions have been marked as complete",
+        description: "All sessions have been marked as complete. You can now start with a new candidate.",
       });
     } catch (error) {
       console.error('Error marking as complete:', error);
