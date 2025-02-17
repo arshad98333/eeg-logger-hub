@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -183,7 +184,7 @@ export const useSessionManagement = () => {
     if (!selectedCandidate) return null;
     
     try {
-      const { data, error } = await supabase
+      const { data: sessionData, error } = await supabase
         .from('sessions')
         .select(`
           *,
@@ -198,8 +199,25 @@ export const useSessionManagement = () => {
         console.error('Error fetching session data:', error);
         return null;
       }
-      
-      return data || null;
+
+      if (!sessionData) {
+        console.log('No session data found');
+        return null;
+      }
+
+      // Transform the data to match the expected structure
+      return {
+        candidate_name: sessionData.candidate_name,
+        session_number: sessionData.session_number,
+        impedance_h: sessionData.impedance_h || '',
+        impedance_l: sessionData.impedance_l || '',
+        blocks: Array.isArray(sessionData.blocks) ? sessionData.blocks.map(block => ({
+          block_index: block.block_index,
+          start_time: block.start_time || '',
+          end_time: block.end_time || '',
+          notes: block.notes || ''
+        })) : []
+      };
     } catch (error) {
       console.error('Error fetching session data:', error);
       return null;
