@@ -5,6 +5,7 @@ import { SessionLogging } from "@/components/SessionLogging";
 import { AdminPanel } from "@/components/AdminPanel";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
@@ -50,10 +51,29 @@ const Index = () => {
     });
   };
 
+  const scrollToAdmin = () => {
+    const adminPanel = document.getElementById('admin-panel');
+    if (adminPanel) {
+      adminPanel.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-clinical-100">
       <div className="container mx-auto py-8 space-y-8">
-        {isAdmin && <AdminPanel />}
+        {isAdmin && (
+          <div className="flex justify-end">
+            <Button
+              onClick={scrollToAdmin}
+              variant="outline"
+              className="mb-4"
+            >
+              Go to Admin Panel
+            </Button>
+          </div>
+        )}
+        
+        {isAdmin && <div id="admin-panel"><AdminPanel /></div>}
         
         <CandidateManagement
           candidates={candidates}
