@@ -82,11 +82,19 @@ const Index = () => {
         .maybeSingle();
 
       if (existingSession) {
-        toast({
-          title: "Session Already Exists",
-          description: "This session has already been saved",
-          variant: "destructive",
-        });
+        // If it's session 14, inform user with a non-error toast
+        if (sessionData.sessionNumber === 14) {
+          setIsAllSessionsCompleted(true);
+          toast({
+            title: "Session Already Saved",
+            description: "Session 14 is complete. You can now mark all sessions as complete.",
+          });
+        } else {
+          toast({
+            title: "Session Already Saved",
+            description: "You can proceed to the next session",
+          });
+        }
         return;
       }
 
@@ -133,6 +141,10 @@ const Index = () => {
       // Check if this was the last session
       if (sessionData.sessionNumber === 14) {
         setIsAllSessionsCompleted(true);
+        toast({
+          title: "All Sessions Complete",
+          description: "You can now mark all sessions as complete",
+        });
       }
     } catch (error) {
       console.error('Error saving session:', error);
