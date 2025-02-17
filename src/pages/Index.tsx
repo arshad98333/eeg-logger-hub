@@ -72,9 +72,12 @@ const Index = () => {
 
   const formatSessionData = (sessionData: any) => {
     const blocks = sessionData.blocks;
-    let formattedText = `Session : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
-    formattedText += `Session ID : ${selectedCandidate}\n`;
-    formattedText += `Impedence : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n`;
+    let formattedText = `CANDIDATE NAME: ${selectedCandidate}\n\n`;
+    formattedText += `SESSION INFORMATION:\n`;
+    formattedText += `Session : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
+    formattedText += `Session ID : ${sessionData.sessionId}\n`;
+    formattedText += `High (H) : ${sessionData.impedanceH}\n`;
+    formattedText += `Low (L) : ${sessionData.impedanceL}\n\n`;
     formattedText += `TIMINGS:\n\n`;
 
     blocks.forEach((block: any) => {
@@ -136,14 +139,15 @@ const Index = () => {
     
     doc.setFont("helvetica", "bold");
     doc.text(`Session: ${String(currentSession.sessionNumber).padStart(2, '0')}`, 20, 60);
-    doc.text(`Session ID: ${selectedCandidate}`, 20, 68);
-    doc.text(`Impedance: H-${currentSession.impedanceH}/L-${currentSession.impedanceL}`, 20, 76);
+    doc.text(`Session ID: ${currentSession.sessionId}`, 20, 68);
+    doc.text(`High (H): ${currentSession.impedanceH}`, 20, 76);
+    doc.text(`Low (L): ${currentSession.impedanceL}`, 20, 84);
     
     doc.setFont("helvetica", "bold");
-    doc.text("TIMINGS:", 20, 90);
+    doc.text("TIMINGS:", 20, 98);
     doc.setFont("helvetica", "normal");
     
-    let yPosition = 100;
+    let yPosition = 108;
     currentSession.blocks.forEach((block: any, index: number) => {
       if (block.startTime && block.endTime) {
         doc.text(`${block.startTime}  -  ${block.endTime}`, 20, yPosition);
@@ -225,14 +229,15 @@ const Index = () => {
     
     doc.setFont("helvetica", "bold");
     doc.text(`Session: ${String(currentSession.sessionNumber).padStart(2, '0')}`, 20, 60);
-    doc.text(`Session ID: ${selectedCandidate}`, 20, 68);
-    doc.text(`Impedance: H-${currentSession.impedanceH}/L-${currentSession.impedanceL}`, 20, 76);
+    doc.text(`Session ID: ${currentSession.sessionId}`, 20, 68);
+    doc.text(`High (H): ${currentSession.impedanceH}`, 20, 76);
+    doc.text(`Low (L): ${currentSession.impedanceL}`, 20, 84);
     
     doc.setFont("helvetica", "bold");
-    doc.text("TIMINGS:", 20, 90);
+    doc.text("TIMINGS:", 20, 98);
     doc.setFont("helvetica", "normal");
     
-    let yPosition = 100;
+    let yPosition = 108;
     currentSession.blocks.forEach((block: any, index: number) => {
       if (block.startTime && block.endTime) {
         doc.text(`${block.startTime}  -  ${block.endTime}`, 20, yPosition);
