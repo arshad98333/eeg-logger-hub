@@ -5,14 +5,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { RealtimeTracker } from "@/components/dashboard/RealtimeTracker";
 import { PerformanceAnalysis } from "@/components/dashboard/PerformanceAnalysis";
 
+interface Block {
+  block_index: number;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+interface Session {
+  session_number: number;
+  blocks: Block[];
+}
+
+interface CandidateSession {
+  candidate_name: string;
+  session_number: number;
+  blocks: Block[];
+}
+
 const Dashboard = () => {
   const [candidatesData, setCandidatesData] = useState<any[]>([]);
 
   useEffect(() => {
-    // Initial fetch
     fetchCandidatesData();
 
-    // Set up real-time subscription
     const channel = supabase
       .channel('session-updates')
       .on(
@@ -50,17 +65,15 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Process data to group by candidate
-      const processedData = processCandidateData(data);
+      const processedData = processCandidateData(data as CandidateSession[]);
       setCandidatesData(processedData);
     } catch (error) {
       console.error('Error fetching candidate data:', error);
     }
   };
 
-  const processCandidateData = (data: any[]) => {
-    // Group sessions by candidate
-    const candidateGroups = data.reduce((groups: { [key: string]: any[] }, session) => {
+  const processCandidateData = (data: CandidateSession[]) => {
+    const candidateGroups = data.reduce((groups: { [key: string]: Session[] }, session) => {
       if (!groups[session.candidate_name]) {
         groups[session.candidate_name] = [];
       }
@@ -71,12 +84,10 @@ const Dashboard = () => {
       return groups;
     }, {});
 
-    // Convert grouped data to final format
     return Object.entries(candidateGroups).map(([name, sessions]) => {
       const sessionCount = sessions.length;
       const progress = (sessionCount / 14) * 100;
 
-      // Sort sessions by session number
       const sortedSessions = sessions.sort((a, b) => a.session_number - b.session_number);
 
       return {
