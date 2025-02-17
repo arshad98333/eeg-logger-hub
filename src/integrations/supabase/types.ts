@@ -82,6 +82,7 @@ export type Database = {
           progress_percentage: number | null
           session_id: string | null
           session_number: number | null
+          session_shift: number | null
           started_at: string
           user_id: string | null
         }
@@ -95,6 +96,7 @@ export type Database = {
           progress_percentage?: number | null
           session_id?: string | null
           session_number?: number | null
+          session_shift?: number | null
           started_at?: string
           user_id?: string | null
         }
@@ -108,6 +110,7 @@ export type Database = {
           progress_percentage?: number | null
           session_id?: string | null
           session_number?: number | null
+          session_shift?: number | null
           started_at?: string
           user_id?: string | null
         }

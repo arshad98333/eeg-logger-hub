@@ -87,20 +87,24 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     setSessionData(newSessionData);
 
     try {
-      const updateData = {
-        current_block: index + 1,
-        session_number: currentSession
-      };
-
       const { error } = await supabase
         .from('sessions')
-        .update(updateData)
+        .update({
+          current_block: index + 1,
+          session_number: currentSession,
+          session_id: sessionData.sessionNumber
+        })
         .eq('candidate_name', candidateName)
         .eq('session_number', currentSession);
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error updating current block:', error);
+      console.error('Error updating session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update session",
+        variant: "destructive"
+      });
     }
 
     const stored = localStorage.getItem(STORAGE_KEY);

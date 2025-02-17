@@ -7,9 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 
 interface SessionProgress {
   candidate_name: string;
-  session_number: number;
-  current_block: number;
-  progress_percentage: number;
+  session_number: number | null;
+  current_block: number | null;
+  progress_percentage: number | null;
 }
 
 const Dashboard = () => {
@@ -50,7 +50,7 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      setSessions(data as SessionProgress[] || []);
+      setSessions(data || []);
     } catch (error) {
       console.error('Error fetching sessions:', error);
       toast({
@@ -71,12 +71,12 @@ const Dashboard = () => {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-lg font-semibold">{session.candidate_name}</h2>
                 <span className="text-sm text-gray-600">
-                  Session {session.session_number} - Block {session.current_block}
+                  Session {session.session_number || 1} - Block {session.current_block || 1}
                 </span>
               </div>
-              <Progress value={session.progress_percentage} className="h-2" />
+              <Progress value={session.progress_percentage || 0} className="h-2" />
               <div className="mt-2 text-sm text-gray-600">
-                {session.progress_percentage.toFixed(1)}% Complete
+                {(session.progress_percentage || 0).toFixed(1)}% Complete
               </div>
             </Card>
           ))}
