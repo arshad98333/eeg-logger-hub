@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ interface Block {
 interface SessionData {
   candidateName: string;
   sessionNumber: number;
+  sessionId: string;
   impedanceH: string;
   impedanceL: string;
   blocks: Block[];
@@ -45,32 +47,42 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     return {
       candidateName,
       sessionNumber: initialSession,
+      sessionId: "0",
       impedanceH: "",
       impedanceL: "",
-      blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+      blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
     };
   });
   
   const { toast } = useToast();
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const allSessions = JSON.parse(stored);
-      const candidateData = allSessions[candidateName];
-      if (candidateData && candidateData[currentSession]) {
-        setSessionData(candidateData[currentSession]);
-      } else {
-        setSessionData({
-          candidateName,
-          sessionNumber: currentSession,
-          impedanceH: "",
-          impedanceL: "",
-          blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-        });
+    const loadSessionState = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('candidate_name', candidateName)
+          .eq('session_number', currentSession)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setSessionData(prev => ({
+            ...prev,
+            sessionId: data.session_id || "0",
+            impedanceH: data.impedance_h || "",
+            impedanceL: data.impedance_l || "",
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading session state:', error);
       }
-    }
-  }, [currentSession, candidateName]);
+    };
+
+    loadSessionState();
+  }, [candidateName, currentSession]);
 
   const handleBlockChange = async (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
     const newBlocks = [...sessionData.blocks];
@@ -92,7 +104,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         .update({
           current_block: index + 1,
           session_number: currentSession,
-          session_id: sessionData.sessionNumber
+          session_id: sessionData.sessionId.toString()
         })
         .eq('candidate_name', candidateName)
         .eq('session_number', currentSession);
@@ -114,6 +126,58 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       [currentSession]: newSessionData
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+  };
+
+  const handleCompleteShift = async () => {
+    try {
+      // Mark current session as completed
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({ 
+          ended_at: new Date().toISOString(),
+          session_shift: 1,
+          current_block: 14
+        })
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession);
+
+      if (updateError) throw updateError;
+
+      // Create new session entry
+      const { error: insertError } = await supabase
+        .from('sessions')
+        .insert({
+          candidate_name: candidateName,
+          session_number: 1,
+          session_id: sessionData.sessionId.toString(),
+          current_block: 1,
+          started_at: new Date().toISOString()
+        });
+
+      if (insertError) throw insertError;
+
+      setCurrentSession(1);
+      setSessionData({
+        candidateName,
+        sessionNumber: 1,
+        sessionId: sessionData.sessionId,
+        impedanceH: "",
+        impedanceL: "",
+        blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+      });
+
+      toast({
+        title: "Success",
+        description: "Shift completed. Starting new session.",
+      });
+    } catch (error) {
+      console.error('Error completing shift:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete shift",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSessionChange = (direction: 'next' | 'prev') => {
@@ -165,8 +229,32 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
         <div className="space-y-6">
           <div className="space-y-4">
-            <h4 className="text-lg font-medium text-clinical-800">Impedance Values</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <h4 className="text-lg font-medium text-clinical-800">Session Information</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sessionId">Session ID</Label>
+                <Input
+                  id="sessionId"
+                  placeholder="Session ID"
+                  value={sessionData.sessionId}
+                  onChange={(e) => {
+                    const newData = { ...sessionData, sessionId: e.target.value };
+                    setSessionData(newData);
+                    
+                    try {
+                      supabase
+                        .from('sessions')
+                        .update({
+                          session_id: e.target.value
+                        })
+                        .eq('candidate_name', candidateName)
+                        .eq('session_number', currentSession);
+                    } catch (error) {
+                      console.error('Error updating session ID:', error);
+                    }
+                  }}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="impedanceH">High</Label>
                 <Input
@@ -176,13 +264,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceH: e.target.value };
                     setSessionData(newData);
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    const allSessions = stored ? JSON.parse(stored) : {};
-                    allSessions[candidateName] = {
-                      ...allSessions[candidateName],
-                      [currentSession]: newData
-                    };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
                   }}
                 />
               </div>
@@ -195,13 +276,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceL: e.target.value };
                     setSessionData(newData);
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    const allSessions = stored ? JSON.parse(stored) : {};
-                    allSessions[candidateName] = {
-                      ...allSessions[candidateName],
-                      [currentSession]: newData
-                    };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
                   }}
                 />
               </div>
@@ -224,8 +298,17 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           ))}
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end space-x-4">
           <Button type="submit">Save Session</Button>
+          {currentSession === 14 && (
+            <Button 
+              type="button"
+              onClick={handleCompleteShift}
+              variant="default"
+            >
+              Complete Shift
+            </Button>
+          )}
         </div>
       </Card>
     </form>
