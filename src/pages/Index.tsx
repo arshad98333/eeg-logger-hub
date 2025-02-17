@@ -6,6 +6,26 @@ import { Header } from "@/components/Header";
 import { useSessionManagement } from "@/hooks/useSessionManagement";
 import { useState, useEffect } from "react";
 
+interface DatabaseSession {
+  candidate_name: string;
+  ended_at: string | null;
+  id: string;
+  session_id: string | null;
+  session_number: number | null;
+  started_at: string;
+  user_id: string | null;
+  impedance_h: string | null;
+  impedance_l: string | null;
+  blocks: Array<{
+    block_index: number;
+    created_at: string | null;
+    end_time: string | null;
+    id: string;
+    notes: string | null;
+    start_time: string | null;
+  }>;
+}
+
 interface SessionData {
   candidateName: string;
   sessionNumber: number;
@@ -43,15 +63,15 @@ const Index = () => {
   useEffect(() => {
     const fetchSessionData = async () => {
       if (selectedCandidate) {
-        const data = await getCurrentSessionData();
+        const data = await getCurrentSessionData() as DatabaseSession | null;
         if (data) {
           setCurrentSessionData({
             candidateName: selectedCandidate,
-            sessionNumber: data.session_number,
-            sessionId: data.session_id,
+            sessionNumber: data.session_number || 1,
+            sessionId: data.session_id || '',
             impedanceH: data.impedance_h || '',
             impedanceL: data.impedance_l || '',
-            blocks: data.blocks.map((block: any) => ({
+            blocks: data.blocks.map((block) => ({
               startTime: block.start_time || '',
               endTime: block.end_time || '',
               notes: block.notes || ''
