@@ -31,24 +31,27 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   doc.text("Block Timings:", 20, 70);
   let yPos = 80;
   
-  sessionData.blocks.forEach((block) => {
-    if (block.start_time && block.end_time) {
-      doc.text(`Block ${block.block_index}: ${block.start_time} - ${block.end_time}`, 30, yPos);
-      yPos += 10;
-    }
-  });
-  
-  // Add notes
-  doc.text("Notes:", 20, yPos + 10);
-  yPos += 20;
-  
-  sessionData.blocks.forEach((block) => {
-    if (block.notes) {
-      const noteText = `Block ${block.block_index}: ${block.notes}`;
-      doc.text(noteText, 30, yPos, { maxWidth: 150 });
-      yPos += 10;
-    }
-  });
+  // Ensure blocks exists and is an array before using forEach
+  if (Array.isArray(sessionData.blocks)) {
+    sessionData.blocks.forEach((block) => {
+      if (block.start_time && block.end_time) {
+        doc.text(`Block ${block.block_index}: ${block.start_time} - ${block.end_time}`, 30, yPos);
+        yPos += 10;
+      }
+    });
+    
+    // Add notes
+    doc.text("Notes:", 20, yPos + 10);
+    yPos += 20;
+    
+    sessionData.blocks.forEach((block) => {
+      if (block.notes) {
+        const noteText = `Block ${block.block_index}: ${block.notes}`;
+        doc.text(noteText, 30, yPos, { maxWidth: 150 });
+        yPos += 10;
+      }
+    });
+  }
   
   return doc;
 };

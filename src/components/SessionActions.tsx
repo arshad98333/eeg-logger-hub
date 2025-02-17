@@ -35,7 +35,7 @@ export const SessionActions = ({
   const { toast } = useToast();
 
   const handleShareToWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) {
+    if (!selectedCandidate || !sessionData || !sessionData.blocks) {
       toast({
         title: "Error",
         description: "No session data available to share",
@@ -50,7 +50,7 @@ export const SessionActions = ({
   };
 
   const handleDownloadPDF = () => {
-    if (!selectedCandidate || !sessionData) {
+    if (!selectedCandidate || !sessionData || !sessionData.blocks) {
       toast({
         title: "Error",
         description: "No session data available to download",
@@ -82,19 +82,27 @@ export const SessionActions = ({
     formattedText += `Impedance : H-${data.impedance_h}/L-${data.impedance_l}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    data.blocks.forEach((block) => {
-      if (block.start_time && block.end_time) {
-        formattedText += `Block ${block.block_index}: ${block.start_time}\t${block.end_time}\n`;
-      }
-    });
+    // Ensure blocks exists and is an array before using forEach
+    if (Array.isArray(data.blocks)) {
+      data.blocks.forEach((block) => {
+        if (block.start_time && block.end_time) {
+          formattedText += `Block ${block.block_index}: ${block.start_time}\t${block.end_time}\n`;
+        }
+      });
 
-    formattedText += `\nNOTES:\n`;
-    data.blocks.forEach((block) => {
-      formattedText += `Block ${block.block_index}: ${block.notes || 'NO NOTES'}\n`;
-    });
+      formattedText += `\nNOTES:\n`;
+      data.blocks.forEach((block) => {
+        formattedText += `Block ${block.block_index}: ${block.notes || 'NO NOTES'}\n`;
+      });
+    }
 
     return formattedText;
   };
+
+  // Don't render anything if we don't have valid session data
+  if (!sessionData || !sessionData.blocks) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 justify-end mt-6">
