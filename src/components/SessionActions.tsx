@@ -13,6 +13,8 @@ interface Block {
 interface SessionData {
   sessionNumber: number;
   sessionId: string;
+  impedanceH: string;
+  impedanceL: string;
   blocks: Block[];
 }
 
@@ -69,7 +71,17 @@ export const SessionActions = ({
     if (!validateSessionData()) return;
 
     try {
-      const doc = generateSessionPDF(selectedCandidate, sessionData);
+      const pdfData = {
+        ...sessionData,
+        session_id: sessionData.sessionId, // Map to expected PDF format
+        blocks: sessionData.blocks.map(block => ({
+          start_time: block.startTime,
+          end_time: block.endTime,
+          notes: block.notes
+        }))
+      };
+      
+      const doc = generateSessionPDF(selectedCandidate, pdfData);
       doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
       
       toast({
@@ -89,6 +101,9 @@ export const SessionActions = ({
   const formatSessionData = (data: SessionData) => {
     let formattedText = `Session ${data.sessionNumber}\n\n`;
     formattedText += `Session ID: ${data.sessionId}\n\n`;
+    formattedText += `Impedance Values:\n`;
+    formattedText += `High: ${data.impedanceH}\n`;
+    formattedText += `Low: ${data.impedanceL}\n\n`;
     formattedText += `Blocks:\n\n`;
 
     data.blocks.forEach((block, index) => {

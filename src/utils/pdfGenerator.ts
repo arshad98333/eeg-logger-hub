@@ -55,8 +55,8 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   doc.text("Session Information", 15, 85);
   doc.setFont("helvetica", "normal");
   doc.text(`Session: ${String(sessionData.sessionNumber).padStart(2, '0')}`, 25, 93);
-  doc.text(`Session ID: ${sessionData.session_id || candidateName}`, 25, 100);
-  doc.text(`Impedance: H-${sessionData.impedanceH || 'N/A'}/L-${sessionData.impedanceL || 'N/A'}`, 120, 100);
+  doc.text(`Session ID: ${sessionData.session_id}`, 25, 100);
+  doc.text(`Impedance: H-${sessionData.impedanceH}/L-${sessionData.impedanceL}`, 120, 100);
   
   // Timings Box
   doc.setFillColor(249, 250, 251);
