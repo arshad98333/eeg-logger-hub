@@ -94,11 +94,13 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
       setIsAnalyzing(true);
       console.log("Triggering analysis...");
       
-      const response = await supabase.functions.invoke('analyze-sessions');
+      const { data: response, error } = await supabase.functions.invoke('analyze-sessions', {
+        body: { timestamp: new Date().toISOString() }
+      });
       
-      if (response.error) {
-        console.error('Error from analyze-sessions:', response.error);
-        throw response.error;
+      if (error) {
+        console.error('Error from analyze-sessions:', error);
+        throw error;
       }
       
       console.log("Analysis completed, fetching updated data...");
@@ -112,7 +114,7 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
       console.error('Error triggering analysis:', error);
       toast({
         title: "Error",
-        description: "Failed to update analysis",
+        description: error.message || "Failed to update analysis",
         variant: "destructive",
       });
     } finally {

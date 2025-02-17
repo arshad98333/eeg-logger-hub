@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -6,35 +5,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-
-interface SessionAnalysis {
-  sessionNumber: number;
-  completedBlocks: number;
-  totalBlocks: number;
-  averageBlockDuration: number;
-  notes: string;
-}
-
-interface CandidateMetrics {
-  totalSessions: number;
-  completionRate: number;
-  averageBlocksPerSession: number;
-  consistency: number;
-  timeManagement: number;
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    console.log('Starting analysis...');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-    // Fetch session data
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing environment variables');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { data: sessions, error: sessionError } = await supabase
       .from('sessions')
       .select(`
@@ -42,7 +32,12 @@ serve(async (req) => {
         blocks (*)
       `);
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      console.error('Error fetching sessions:', sessionError);
+      throw sessionError;
+    }
+
+    console.log(`Processing ${sessions?.length || 0} sessions...`);
 
     // Process data by candidate
     const candidateData = sessions.reduce((acc: any, session: any) => {
@@ -190,14 +185,30 @@ Status: ${metrics.totalSessions >= 12 ? "Qualified" : "In Progress"}`;
       if (insertError) throw insertError;
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ success: true }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   } catch (error) {
     console.error('Error in analyze-sessions function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+        details: error.stack
+      }),
+      { 
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 });
