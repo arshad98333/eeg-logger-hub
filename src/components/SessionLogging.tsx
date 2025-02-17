@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-const STORAGE_KEY = "clinical-session-data";
+export const STORAGE_KEY = "clinical-session-data";
 
 interface SessionLoggingProps {
   candidateName: string;
