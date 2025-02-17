@@ -19,35 +19,52 @@ export const SessionActions = ({
 }: SessionActionsProps) => {
   const { toast } = useToast();
 
-  const handleShareToWhatsApp = () => {
-    if (!selectedCandidate || !sessionData || !sessionData.blocks) {
+  const validateSessionData = () => {
+    if (!selectedCandidate || !sessionData) {
       toast({
         title: "Error",
-        description: "No valid session data available to share",
+        description: "No session data available",
         variant: "destructive"
       });
-      return;
+      return false;
     }
 
-    const formattedText = formatSessionData(sessionData);
-    const encodedText = encodeURIComponent(formattedText);
-    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
-    
-    toast({
-      title: "Success",
-      description: "WhatsApp sharing window opened",
-    });
+    if (!sessionData.blocks || !Array.isArray(sessionData.blocks)) {
+      toast({
+        title: "Error",
+        description: "Invalid session data structure",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleShareToWhatsApp = () => {
+    if (!validateSessionData()) return;
+
+    try {
+      const formattedText = formatSessionData(sessionData);
+      const encodedText = encodeURIComponent(formattedText);
+      window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+      
+      toast({
+        title: "Success",
+        description: "WhatsApp sharing window opened",
+      });
+    } catch (error) {
+      console.error('WhatsApp Sharing Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to share to WhatsApp",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDownloadPDF = () => {
-    if (!selectedCandidate || !sessionData || !sessionData.blocks) {
-      toast({
-        title: "Error",
-        description: "No valid session data available to download",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!validateSessionData()) return;
 
     try {
       const doc = generateSessionPDF(selectedCandidate, sessionData);
@@ -67,26 +84,21 @@ export const SessionActions = ({
     }
   };
 
-  const formatSessionData = (sessionData: any) => {
-    if (!sessionData || !sessionData.blocks || !Array.isArray(sessionData.blocks)) {
-      return "Error: Invalid session data";
-    }
-
-    const blocks = sessionData.blocks;
+  const formatSessionData = (data: any) => {
     let formattedText = `*Clinical Session Report*\n\n`;
-    formattedText += `*Session* : ${String(sessionData.sessionNumber || '').padStart(2, '0')}\n`;
+    formattedText += `*Session* : ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
     formattedText += `*Session ID* : ${selectedCandidate}\n`;
-    formattedText += `*Impedance* : H-${sessionData.impedanceH || 'N/A'}/L-${sessionData.impedanceL || 'N/A'}\n\n`;
+    formattedText += `*Impedance* : H-${data.impedanceH || 'N/A'}/L-${data.impedanceL || 'N/A'}\n\n`;
     formattedText += `*TIMINGS:*\n\n`;
 
-    blocks.forEach((block: any, index: number) => {
+    data.blocks.forEach((block: any, index: number) => {
       if (block && block.startTime && block.endTime) {
         formattedText += `Block ${index}: ${block.startTime} - ${block.endTime}\n`;
       }
     });
 
     formattedText += `\n*NOTES:*\n`;
-    blocks.forEach((block: any, index: number) => {
+    data.blocks.forEach((block: any, index: number) => {
       if (block) {
         formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
       }
@@ -101,6 +113,7 @@ export const SessionActions = ({
         variant="outline" 
         onClick={handleShareToWhatsApp}
         className="w-full sm:w-auto"
+        disabled={!sessionData}
       >
         <Share className="mr-2 h-4 w-4" />
         Share to WhatsApp
@@ -110,6 +123,7 @@ export const SessionActions = ({
         variant="outline" 
         onClick={handleDownloadPDF}
         className="w-full sm:w-auto"
+        disabled={!sessionData}
       >
         <Download className="mr-2 h-4 w-4" />
         Download PDF
