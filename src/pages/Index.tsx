@@ -4,6 +4,7 @@ import { CandidateManagement } from "@/components/CandidateManagement";
 import { SessionLogging } from "@/components/SessionLogging";
 import { SessionActions } from "@/components/SessionActions";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "clinical-session-data";
 const COMPLETION_KEY = "completed-candidates";
@@ -41,16 +42,73 @@ const Index = () => {
     setIsAllSessionsCompleted(hasAllSessions);
   };
 
-  const handleAddCandidate = (data: { name: string; date: string; shift: string }) => {
-    setSelectedCandidate(data.name);
-    toast({
-      title: "Candidate Added",
-      description: "New candidate has been successfully added",
-    });
+  const handleAddCandidate = async (data: { name: string; date: string; shift: string }) => {
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .insert({
+          candidate_name: data.name,
+          session_number: 1,
+          started_at: new Date().toISOString(),
+          user_id: 'default'  // We'll update this when auth is implemented
+        });
+
+      if (error) throw error;
+
+      setSelectedCandidate(data.name);
+      toast({
+        title: "Candidate Added",
+        description: "New candidate has been successfully added",
+      });
+    } catch (error) {
+      console.error('Error adding candidate:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add candidate",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSaveSession = (sessionData: any) => {
-    if (selectedCandidate) {
+  const handleSaveSession = async (sessionData: any) => {
+    if (!selectedCandidate) return;
+
+    try {
+      // First, save to Supabase
+      const { data: sessionResult, error: sessionError } = await supabase
+        .from('sessions')
+        .upsert({
+          candidate_name: selectedCandidate,
+          session_number: sessionData.sessionNumber,
+          user_id: 'default', // We'll update this when auth is implemented
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      // Then save blocks
+      const blockPromises = sessionData.blocks.map(async (block: any, index: number) => {
+        if (block.startTime || block.endTime || block.notes) {
+          const { error: blockError } = await supabase
+            .from('blocks')
+            .upsert({
+              session_id: sessionResult.id,
+              block_index: index,
+              start_time: block.startTime || null,
+              end_time: block.endTime || null,
+              notes: block.notes || null,
+              is_recording: block.isRecording || false
+            });
+
+          if (blockError) throw blockError;
+        }
+      });
+
+      await Promise.all(blockPromises);
+
+      // Update local storage
       const existingData = localStorage.getItem(STORAGE_KEY);
       const allSessions = existingData ? JSON.parse(existingData) : {};
       
@@ -61,51 +119,95 @@ const Index = () => {
       
       localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
       checkSessionCompletion();
+      
+      toast({
+        title: "Session Saved",
+        description: "Session data has been successfully saved",
+      });
+    } catch (error) {
+      console.error('Error saving session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save session",
+        variant: "destructive",
+      });
     }
-    
-    toast({
-      title: "Session Saved",
-      description: "Session data has been successfully saved",
-    });
   };
 
-  const handleMarkAsComplete = () => {
+  const handleMarkAsComplete = async () => {
     if (!selectedCandidate || !isAllSessionsCompleted) return;
 
-    const completedCandidates = localStorage.getItem(COMPLETION_KEY);
-    const completed = completedCandidates ? JSON.parse(completedCandidates) : [];
-    completed.push(selectedCandidate);
-    localStorage.setItem(COMPLETION_KEY, JSON.stringify(completed));
+    try {
+      // Update all sessions for this candidate as completed
+      const { error } = await supabase
+        .from('sessions')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('candidate_name', selectedCandidate);
 
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const allSessions = JSON.parse(stored);
-      delete allSessions[selectedCandidate];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+      if (error) throw error;
+
+      // Update local storage
+      const completedCandidates = localStorage.getItem(COMPLETION_KEY);
+      const completed = completedCandidates ? JSON.parse(completedCandidates) : [];
+      completed.push(selectedCandidate);
+      localStorage.setItem(COMPLETION_KEY, JSON.stringify(completed));
+
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const allSessions = JSON.parse(stored);
+        delete allSessions[selectedCandidate];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+      }
+
+      localStorage.removeItem("selectedCandidate");
+      setSelectedCandidate(null);
+      setIsAllSessionsCompleted(false);
+
+      toast({
+        title: "Sessions Completed",
+        description: "All sessions have been marked as complete",
+      });
+    } catch (error) {
+      console.error('Error marking as complete:', error);
+      toast({
+        title: "Error",
+        description: "Failed to mark sessions as complete",
+        variant: "destructive",
+      });
     }
-
-    localStorage.removeItem("selectedCandidate");
-    setSelectedCandidate(null);
-    setIsAllSessionsCompleted(false);
-
-    toast({
-      title: "Sessions Completed",
-      description: "All sessions have been marked as complete",
-    });
   };
 
-  const getCurrentSessionData = () => {
+  const getCurrentSessionData = async () => {
     if (!selectedCandidate) return null;
     
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          blocks (*)
+        `)
+        .eq('candidate_name', selectedCandidate)
+        .order('session_number', { ascending: true })
+        .limit(1)
+        .single();
 
-    const allSessions = JSON.parse(stored);
-    const candidateData = allSessions[selectedCandidate];
-    
-    if (!candidateData) return null;
+      if (error) throw error;
 
-    return Object.values(candidateData)[0];
+      return data;
+    } catch (error) {
+      console.error('Error fetching session data:', error);
+      // Fallback to local storage
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return null;
+
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[selectedCandidate];
+      
+      if (!candidateData) return null;
+
+      return Object.values(candidateData)[0];
+    }
   };
 
   return (
