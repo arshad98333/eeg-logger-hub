@@ -95,9 +95,15 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
       console.log("Triggering analysis...");
       
       const { data: response, error } = await supabase.functions.invoke('analyze-sessions', {
-        body: { timestamp: new Date().toISOString() }
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: { 
+          timestamp: new Date().toISOString()
+        }
       });
-      
+
       if (error) {
         console.error('Error from analyze-sessions:', error);
         throw error;
@@ -110,7 +116,7 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
         title: "Analysis Updated",
         description: "Session analysis has been refreshed",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error triggering analysis:', error);
       toast({
         title: "Error",

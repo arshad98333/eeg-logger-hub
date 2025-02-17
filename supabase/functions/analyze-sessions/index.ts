@@ -5,17 +5,36 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-serve(async (req) => {
+interface SessionAnalysis {
+  sessionNumber: number;
+  completedBlocks: number;
+  totalBlocks: number;
+  averageBlockDuration: number;
+  notes: string;
+}
+
+interface CandidateMetrics {
+  totalSessions: number;
+  completionRate: number;
+  averageBlocksPerSession: number;
+  consistency: number;
+  timeManagement: number;
+}
+
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      }
+    });
   }
 
   try {
-    console.log('Starting analysis...');
-    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -23,21 +42,31 @@ serve(async (req) => {
       throw new Error('Missing environment variables');
     }
 
+    console.log('Starting analysis with Supabase client...');
     const supabase = createClient(supabaseUrl, supabaseKey);
-    
+
     const { data: sessions, error: sessionError } = await supabase
       .from('sessions')
-      .select(`
-        *,
-        blocks (*)
-      `);
+      .select('*, blocks (*)');
 
     if (sessionError) {
       console.error('Error fetching sessions:', sessionError);
       throw sessionError;
     }
 
-    console.log(`Processing ${sessions?.length || 0} sessions...`);
+    if (!sessions || sessions.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No sessions found' }),
+        { 
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+    }
+
+    console.log(`Processing ${sessions.length} sessions...`);
 
     // Process data by candidate
     const candidateData = sessions.reduce((acc: any, session: any) => {
@@ -186,19 +215,23 @@ Status: ${metrics.totalSessions >= 12 ? "Qualified" : "In Progress"}`;
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        message: 'Analysis completed successfully'
+      }),
       { 
-        headers: { 
+        headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         }
       }
     );
   } catch (error) {
-    console.error('Error in analyze-sessions function:', error);
+    console.error('Error in analyze-sessions:', error);
     
     return new Response(
       JSON.stringify({
+        success: false,
         error: error.message,
         details: error.stack
       }),
@@ -206,7 +239,7 @@ Status: ${metrics.totalSessions >= 12 ? "Qualified" : "In Progress"}`;
         status: 500,
         headers: {
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         }
       }
     );
