@@ -28,6 +28,7 @@ interface Block {
 interface SessionData {
   candidateName: string;
   sessionNumber: number;
+  sessionId: string;
   impedanceH: string;
   impedanceL: string;
   blocks: Block[];
@@ -51,6 +52,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     return {
       candidateName,
       sessionNumber: currentSession,
+      sessionId: '',
       impedanceH: "",
       impedanceL: "",
       blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
@@ -63,7 +65,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     localStorage.setItem(CURRENT_SESSION_KEY, currentSession.toString());
   }, [currentSession]);
 
-  // Load session data when switching sessions
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -72,10 +73,10 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       if (candidateData && candidateData[currentSession]) {
         setSessionData(candidateData[currentSession]);
       } else {
-        // Initialize new session
         setSessionData({
           candidateName,
           sessionNumber: currentSession,
+          sessionId: '',
           impedanceH: "",
           impedanceL: "",
           blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
@@ -98,7 +99,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     
     setSessionData(newSessionData);
 
-    // Save to localStorage on every change
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     allSessions[candidateName] = {
@@ -116,12 +116,36 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      ...sessionData,
-      sessionNumber: currentSession
-    });
+    
+    try {
+      // Update session_id in Supabase
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({ session_id: sessionData.sessionId })
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession);
+
+      if (updateError) throw updateError;
+
+      onSave({
+        ...sessionData,
+        sessionNumber: currentSession
+      });
+
+      toast({
+        title: "Success",
+        description: "Session data saved successfully",
+      });
+    } catch (error) {
+      console.error('Error saving session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save session data",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -159,6 +183,29 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         </div>
 
         <div className="space-y-6">
+          {/* Session ID input */}
+          <div className="space-y-2">
+            <Label htmlFor="sessionId">Session ID</Label>
+            <Input
+              id="sessionId"
+              placeholder="Enter Session ID"
+              value={sessionData.sessionId}
+              onChange={(e) => {
+                const newData = { ...sessionData, sessionId: e.target.value };
+                setSessionData(newData);
+                // Save to localStorage
+                const stored = localStorage.getItem(STORAGE_KEY);
+                const allSessions = stored ? JSON.parse(stored) : {};
+                allSessions[candidateName] = {
+                  ...allSessions[candidateName],
+                  [currentSession]: newData
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+              }}
+              className="max-w-xs"
+            />
+          </div>
+
           <div className="space-y-4">
             <h4 className="text-lg font-medium text-clinical-800">Impedance Values</h4>
             <div className="grid grid-cols-2 gap-4">

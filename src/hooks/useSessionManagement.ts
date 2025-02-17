@@ -79,6 +79,14 @@ export const useSessionManagement = () => {
         .maybeSingle();
 
       if (existingSession) {
+        // Update session_id if it exists
+        const { error: updateError } = await supabase
+          .from('sessions')
+          .update({ session_id: sessionData.sessionId })
+          .eq('id', existingSession.id);
+
+        if (updateError) throw updateError;
+
         if (sessionData.sessionNumber === 14) {
           setIsAllSessionsCompleted(true);
           toast({
@@ -99,6 +107,7 @@ export const useSessionManagement = () => {
         .insert({
           candidate_name: selectedCandidate,
           session_number: sessionData.sessionNumber,
+          session_id: sessionData.sessionId,
           started_at: new Date().toISOString()
         })
         .select()
