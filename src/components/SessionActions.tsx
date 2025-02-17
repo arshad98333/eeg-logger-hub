@@ -29,15 +29,6 @@ export const SessionActions = ({
       return false;
     }
 
-    if (!sessionData.blocks || !Array.isArray(sessionData.blocks)) {
-      toast({
-        title: "Error",
-        description: "Invalid session data structure",
-        variant: "destructive"
-      });
-      return false;
-    }
-
     return true;
   };
 
@@ -45,7 +36,9 @@ export const SessionActions = ({
     if (!validateSessionData()) return;
 
     try {
+      console.log('Session Data being shared:', sessionData); // Debug log
       const formattedText = formatSessionData(sessionData);
+      console.log('Formatted text:', formattedText); // Debug log
       const encodedText = encodeURIComponent(formattedText);
       window.open(`https://wa.me/?text=${encodedText}`, '_blank');
       
@@ -98,24 +91,30 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: any) => {
+    console.log('Raw session data:', data); // Debug log
+
     let formattedText = `Session : ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
     formattedText += `Session ID : ${selectedCandidate}\n`;
     formattedText += `Impedence : H-${data.impedanceH || 'N/A'}/L-${data.impedanceL || 'N/A'}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    // Add timings in two columns with both 24h and 12h formats
-    data.blocks.forEach((block: any) => {
-      if (block && block.startTime && block.endTime) {
-        const start12h = formatTimeTo12Hour(block.startTime);
-        const end12h = formatTimeTo12Hour(block.endTime);
-        formattedText += `${block.startTime} (${start12h})\t${block.endTime} (${end12h})\n`;
-      }
-    });
+    if (data.blocks && Array.isArray(data.blocks)) {
+      data.blocks.forEach((block: any, index: number) => {
+        console.log(`Block ${index} data:`, block); // Debug log
+        if (block && block.startTime && block.endTime) {
+          const start12h = formatTimeTo12Hour(block.startTime);
+          const end12h = formatTimeTo12Hour(block.endTime);
+          formattedText += `${start12h}\t${end12h}\n`;
+        }
+      });
+    }
 
     formattedText += `\nNOTES:\n`;
-    data.blocks.forEach((block: any) => {
-      formattedText += `${block && block.notes ? block.notes : 'NO NOTES'}\n`;
-    });
+    if (data.blocks && Array.isArray(data.blocks)) {
+      data.blocks.forEach((block: any) => {
+        formattedText += `${block && block.notes ? block.notes : 'NO NOTES'}\n`;
+      });
+    }
 
     return formattedText;
   };
