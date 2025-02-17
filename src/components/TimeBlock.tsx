@@ -41,22 +41,24 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
     <div className="space-y-4 p-4 bg-clinical-50 rounded-lg animate-fade-in">
       <div className="flex justify-between items-start mb-4">
         <h4 className="text-lg font-medium text-clinical-800">Block {index}</h4>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleRecording}
-          className="relative"
-        >
-          {!isRecording && !startTime && !endTime && (
-            <Circle className="h-6 w-6 text-gray-500" />
-          )}
-          {isRecording && (
-            <CheckCircle2 className="h-6 w-6 text-green-500 animate-pulse" />
-          )}
-          {!isRecording && (startTime || endTime) && (
-            <XCircle className="h-6 w-6 text-red-500" />
-          )}
-        </Button>
+        {index !== 0 && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleRecording}
+            className="relative"
+          >
+            {!isRecording && !startTime && !endTime && (
+              <Circle className="h-6 w-6 text-gray-500" />
+            )}
+            {isRecording && (
+              <CheckCircle2 className="h-6 w-6 text-green-500 animate-pulse" />
+            )}
+            {!isRecording && (startTime || endTime) && (
+              <XCircle className="h-6 w-6 text-red-500" />
+            )}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
