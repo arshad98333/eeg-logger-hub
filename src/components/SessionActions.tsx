@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Download, Share } from "lucide-react";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SessionActionsProps {
   selectedCandidate: string | null;
@@ -31,11 +32,27 @@ export const SessionActions = ({
     return true;
   };
 
-  const handleShareToWhatsApp = () => {
+  const fetchSessionBlocks = async (sessionId: string) => {
+    const { data: blocks, error } = await supabase
+      .from('blocks')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('block_index');
+
+    if (error) {
+      console.error('Error fetching blocks:', error);
+      return [];
+    }
+
+    return blocks || [];
+  };
+
+  const handleShareToWhatsApp = async () => {
     if (!validateSessionData()) return;
 
     try {
-      const formattedText = formatSessionData(sessionData);
+      const blocks = await fetchSessionBlocks(sessionData.id);
+      const formattedText = formatSessionData(sessionData, blocks);
       const encodedText = encodeURIComponent(formattedText);
       window.open(`https://wa.me/?text=${encodedText}`, '_blank');
       
@@ -53,11 +70,12 @@ export const SessionActions = ({
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!validateSessionData()) return;
 
     try {
-      const doc = generateSessionPDF(selectedCandidate, sessionData);
+      const blocks = await fetchSessionBlocks(sessionData.id);
+      const doc = generateSessionPDF(selectedCandidate, { ...sessionData, blocks });
       doc.save(`${selectedCandidate}-session-${sessionData.session_number}.pdf`);
       
       toast({
@@ -87,29 +105,24 @@ export const SessionActions = ({
     }
   };
 
-  const formatSessionData = (data: any) => {
-    let formattedText = `Session ${data.sessionNumber || 1}\n\n`;
-    formattedText += `Session ID: ${data.sessionId || ''}\n\n`;
-    formattedText += `Impedance Values:\n`;
-    formattedText += `High: ${data.impedanceH || ''}\n`;
-    formattedText += `Low: ${data.impedanceL || ''}\n\n`;
+  const formatSessionData = (session: any, blocks: any[]) => {
+    let formattedText = `Session ${session.session_number || ''}\n\n`;
+    formattedText += `Session ID: ${session.session_id || ''}\n\n`;
     formattedText += `Blocks:\n\n`;
 
-    if (data.blocks && Array.isArray(data.blocks)) {
-      data.blocks.forEach((block: any, index: number) => {
-        formattedText += `Block ${index}\n`;
-        if (block.startTime) {
-          formattedText += `Start Time: ${block.startTime}\n`;
-        }
-        if (block.endTime) {
-          formattedText += `End Time: ${block.endTime}\n`;
-        }
-        if (block.notes && block.notes !== '') {
-          formattedText += `Notes: ${block.notes}\n`;
-        }
-        formattedText += '\n';
-      });
-    }
+    blocks.forEach((block, index) => {
+      formattedText += `Block ${block.block_index}\n`;
+      if (block.start_time) {
+        formattedText += `Start Time: ${formatTimeTo12Hour(block.start_time)}\n`;
+      }
+      if (block.end_time) {
+        formattedText += `End Time: ${formatTimeTo12Hour(block.end_time)}\n`;
+      }
+      if (block.notes) {
+        formattedText += `Notes: ${block.notes}\n`;
+      }
+      formattedText += '\n';
+    });
 
     return formattedText;
   };
