@@ -24,7 +24,7 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
   return (
     <div className="space-y-4 p-4 bg-clinical-50 rounded-lg animate-fade-in">
       <div className="flex justify-between items-start mb-4">
-        <h4 className="text-lg font-medium text-clinical-800">Block {index + 1}</h4>
+        <h4 className="text-lg font-medium text-clinical-800">Block {index}</h4>
         <Button 
           variant="ghost" 
           size="icon" 
