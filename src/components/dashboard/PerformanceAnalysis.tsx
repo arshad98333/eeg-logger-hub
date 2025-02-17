@@ -15,8 +15,14 @@ interface AnalysisProps {
   data: Array<{
     name: string;
     sessionCount: number;
-    completedBlocks: number;
-    totalBlocks: number;
+    sessions: Array<{
+      session_number: number;
+      blocks: Array<{
+        block_index: number;
+        start_time: string | null;
+        end_time: string | null;
+      }>;
+    }>;
   }>;
 }
 
@@ -43,6 +49,23 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
     const timer = scheduleNextAnalysis();
     return () => clearTimeout(timer);
   }, []);
+
+  const calculateCompletionRate = (candidate: AnalysisProps['data'][0]) => {
+    let totalCompletedBlocks = 0;
+    let totalExpectedBlocks = 0;
+
+    candidate.sessions.forEach(session => {
+      const completedBlocks = session.blocks.filter(block => 
+        block.start_time && block.end_time
+      ).length;
+      totalCompletedBlocks += completedBlocks;
+      totalExpectedBlocks += 7; // Each session should have 7 blocks
+    });
+
+    return totalExpectedBlocks > 0 
+      ? Math.round((totalCompletedBlocks / totalExpectedBlocks) * 100) 
+      : 0;
+  };
 
   const fetchAnalysis = async () => {
     try {
@@ -99,36 +122,41 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {analysis.map((item) => (
-              <TableRow key={`${item.candidate_name}-${item.created_at}`}>
-                <TableCell className="font-medium">{item.candidate_name}</TableCell>
-                <TableCell>
-                  {data.find(d => d.name === item.candidate_name)?.sessionCount || 0}/14
-                </TableCell>
-                <TableCell>
-                  {data.find(d => d.name === item.candidate_name)?.completedBlocks || 0}%
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      (data.find(d => d.name === item.candidate_name)?.sessionCount || 0) >= 12
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {(data.find(d => d.name === item.candidate_name)?.sessionCount || 0) >= 12 ? "Qualified" : "In Progress"}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {new Date(item.created_at).toLocaleString()}
-                </TableCell>
-                <TableCell className="max-w-md">
-                  <div className="text-sm text-gray-600 truncate">
-                    {item.analysis}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {analysis.map((item) => {
+              const candidateData = data.find(d => d.name === item.candidate_name);
+              const completionRate = candidateData ? calculateCompletionRate(candidateData) : 0;
+
+              return (
+                <TableRow key={`${item.candidate_name}-${item.created_at}`}>
+                  <TableCell className="font-medium">{item.candidate_name}</TableCell>
+                  <TableCell>
+                    {candidateData?.sessionCount || 0}/14
+                  </TableCell>
+                  <TableCell>
+                    {completionRate}%
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        (candidateData?.sessionCount || 0) >= 12
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {(candidateData?.sessionCount || 0) >= 12 ? "Qualified" : "In Progress"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(item.created_at).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="max-w-md">
+                    <div className="text-sm text-gray-600 truncate">
+                      {item.analysis}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
