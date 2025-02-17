@@ -59,47 +59,41 @@ const Dashboard = () => {
   };
 
   const processCandidateData = (data: any[]) => {
-    const candidateMap = new Map();
-
-    data.forEach(session => {
-      if (!candidateMap.has(session.candidate_name)) {
-        candidateMap.set(session.candidate_name, {
-          name: session.candidate_name,
-          sessions: new Map(),
-          totalBlocks: 0,
-          completedBlocks: 0
-        });
+    // Group sessions by candidate
+    const candidateGroups = data.reduce((groups: { [key: string]: any[] }, session) => {
+      if (!groups[session.candidate_name]) {
+        groups[session.candidate_name] = [];
       }
-
-      const candidate = candidateMap.get(session.candidate_name);
-      candidate.sessions.set(session.session_number, {
+      groups[session.candidate_name].push({
         session_number: session.session_number,
         blocks: session.blocks || []
       });
-    });
+      return groups;
+    }, {});
 
-    return Array.from(candidateMap.values())
-      .map(candidate => {
-        const sessionsArray = Array.from(candidate.sessions.values());
-        const sessionCount = candidate.sessions.size;
-        const progress = (sessionCount / 14) * 100;
+    // Convert grouped data to final format
+    return Object.entries(candidateGroups).map(([name, sessions]) => {
+      const sessionCount = sessions.length;
+      const progress = (sessionCount / 14) * 100;
 
-        return {
-          name: candidate.name,
-          sessionCount,
-          progress,
-          status: getCompletionStatus(sessionCount),
-          sessions: sessionsArray
-        };
-      })
-      .sort((a, b) => b.sessionCount - a.sessionCount);
+      // Sort sessions by session number
+      const sortedSessions = sessions.sort((a, b) => a.session_number - b.session_number);
+
+      return {
+        name,
+        sessionCount,
+        progress,
+        status: getCompletionStatus(sessionCount),
+        sessions: sortedSessions
+      };
+    }).sort((a, b) => b.sessionCount - a.sessionCount);
   };
 
   const getCompletionStatus = (sessionCount: number) => {
-    if (sessionCount >= 14) return { color: 'green', opacity: 1 };
-    if (sessionCount >= 13) return { color: 'green', opacity: 0.75 };
-    if (sessionCount >= 12) return { color: 'green', opacity: 0.5 };
-    return { color: 'gray', opacity: 0.3 };
+    if (sessionCount >= 14) return { color: '#22c55e', opacity: 1 }; // green-500
+    if (sessionCount >= 13) return { color: '#22c55e', opacity: 0.75 };
+    if (sessionCount >= 12) return { color: '#22c55e', opacity: 0.5 };
+    return { color: '#6b7280', opacity: 0.3 }; // gray-500
   };
 
   return (
