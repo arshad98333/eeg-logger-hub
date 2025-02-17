@@ -22,6 +22,7 @@ interface SessionProgress {
 interface AggregatedProgress {
   candidate_name: string;
   current_session: number;
+  current_block: number;
   total_progress: number;
   position?: number;
 }
@@ -68,6 +69,7 @@ const Dashboard = () => {
           acc[session.candidate_name] = {
             candidate_name: session.candidate_name,
             current_session: session.session_number || 1,
+            current_block: session.current_block || 1,
             total_progress: ((session.session_number || 1) - 1) * (100/14) + 
                           ((session.current_block || 1) * (100/14/7))
           };
@@ -107,15 +109,6 @@ const Dashboard = () => {
     }
   };
 
-  const getSessionProgress = (totalProgress: number) => {
-    const completedSessions = Math.floor(totalProgress / (100/14));
-    const currentSession = completedSessions + 1;
-    const blockProgress = (totalProgress % (100/14)) / (100/14/7);
-    const currentBlock = Math.ceil(blockProgress);
-
-    return `Session ${currentSession} - Block ${currentBlock}`;
-  };
-
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-clinical-100 py-8">
@@ -142,8 +135,12 @@ const Dashboard = () => {
                       />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{getSessionProgress(session.total_progress)}</p>
+                  <TooltipContent className="bg-white p-2 rounded-lg shadow-lg">
+                    <div className="text-sm font-medium">
+                      <p className="text-gray-900">Currently on:</p>
+                      <p className="text-clinical-600">Session {session.current_session}</p>
+                      <p className="text-clinical-600">Block {session.current_block} of 7</p>
+                    </div>
                   </TooltipContent>
                 </Tooltip>
                 <div className="mt-2 text-sm text-gray-600">
