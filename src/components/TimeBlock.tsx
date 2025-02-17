@@ -1,25 +1,95 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Circle, CheckCircle2, XCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TimeBlockProps {
   index: number;
   startTime: string;
   endTime: string;
   notes: string;
+  sessionId: string;
   onChange: (index: number, field: "startTime" | "endTime" | "notes", value: string) => void;
 }
 
-export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBlockProps) => {
+export const TimeBlock = ({ index, startTime, endTime, notes, sessionId, onChange }: TimeBlockProps) => {
   const [isRecording, setIsRecording] = useState(false);
+  const [blockId, setBlockId] = useState<string | null>(null);
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
+  useEffect(() => {
+    loadBlockData();
+  }, [sessionId, index]);
+
+  const loadBlockData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('blocks')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('block_index', index)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setBlockId(data.id);
+        setIsRecording(data.is_recording);
+        onChange(index, "startTime", data.start_time || "");
+        onChange(index, "endTime", data.end_time || "");
+        onChange(index, "notes", data.notes || "");
+      }
+    } catch (error) {
+      console.error('Error loading block data:', error);
+    }
   };
+
+  const saveBlockData = async () => {
+    try {
+      const blockData = {
+        session_id: sessionId,
+        block_index: index,
+        start_time: startTime,
+        end_time: endTime,
+        notes,
+        is_recording: isRecording,
+      };
+
+      if (blockId) {
+        const { error } = await supabase
+          .from('blocks')
+          .update(blockData)
+          .eq('id', blockId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('blocks')
+          .insert(blockData)
+          .select('id')
+          .single();
+        if (error) throw error;
+        if (data) setBlockId(data.id);
+      }
+    } catch (error) {
+      console.error('Error saving block data:', error);
+    }
+  };
+
+  const toggleRecording = async () => {
+    const newRecordingState = !isRecording;
+    setIsRecording(newRecordingState);
+    await saveBlockData();
+  };
+
+  // Save block data whenever any field changes
+  useEffect(() => {
+    if (sessionId) {
+      saveBlockData();
+    }
+  }, [startTime, endTime, notes, isRecording]);
 
   return (
     <div className="space-y-4 p-4 bg-clinical-50 rounded-lg animate-fade-in">

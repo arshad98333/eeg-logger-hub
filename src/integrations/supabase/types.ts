@@ -9,6 +9,47 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      blocks: {
+        Row: {
+          block_index: number
+          created_at: string | null
+          end_time: string | null
+          id: string
+          is_recording: boolean | null
+          notes: string | null
+          session_id: string | null
+          start_time: string | null
+        }
+        Insert: {
+          block_index: number
+          created_at?: string | null
+          end_time?: string | null
+          id?: string
+          is_recording?: boolean | null
+          notes?: string | null
+          session_id?: string | null
+          start_time?: string | null
+        }
+        Update: {
+          block_index?: number
+          created_at?: string | null
+          end_time?: string | null
+          id?: string
+          is_recording?: boolean | null
+          notes?: string | null
+          session_id?: string | null
+          start_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           admin: boolean | null
