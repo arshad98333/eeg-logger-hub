@@ -9,8 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-export const STORAGE_KEY = "clinical-session-data";
-export const CURRENT_SESSION_KEY = "current-session-number";
+const STORAGE_KEY = "clinical-session-data";
 
 interface SessionLoggingProps {
   candidateName: string;
@@ -34,23 +33,20 @@ interface SessionData {
 }
 
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
-  const [currentSession, setCurrentSession] = useState(() => {
-    const storedSession = localStorage.getItem(CURRENT_SESSION_KEY);
-    return storedSession ? parseInt(storedSession) : initialSession;
-  });
-
+  const [currentSession, setCurrentSession] = useState(initialSession);
   const [sessionData, setSessionData] = useState<SessionData>(() => {
+    // Initialize from localStorage if available
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const allSessions = JSON.parse(stored);
       const candidateData = allSessions[candidateName];
-      if (candidateData && candidateData[currentSession]) {
-        return candidateData[currentSession];
+      if (candidateData && candidateData[initialSession]) {
+        return candidateData[initialSession];
       }
     }
     return {
       candidateName,
-      sessionNumber: currentSession,
+      sessionNumber: initialSession,
       impedanceH: "",
       impedanceL: "",
       blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
@@ -58,10 +54,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   });
   
   const { toast } = useToast();
-
-  useEffect(() => {
-    localStorage.setItem(CURRENT_SESSION_KEY, currentSession.toString());
-  }, [currentSession]);
 
   // Load session data when switching sessions
   useEffect(() => {
@@ -118,10 +110,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      ...sessionData,
-      sessionNumber: currentSession
-    });
+    onSave(sessionData);
   };
 
   return (
