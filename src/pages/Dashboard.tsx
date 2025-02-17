@@ -45,12 +45,12 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from('sessions')
-        .select('*')
+        .select('candidate_name, session_number, current_block, progress_percentage')
         .order('progress_percentage', { ascending: false });
 
       if (error) throw error;
 
-      setSessions(data || []);
+      setSessions(data as SessionProgress[] || []);
     } catch (error) {
       console.error('Error fetching sessions:', error);
       toast({

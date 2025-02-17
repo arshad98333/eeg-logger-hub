@@ -87,9 +87,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     setSessionData(newSessionData);
 
     try {
+      const updateData = {
+        current_block: index + 1,
+        session_number: currentSession
+      };
+
       const { error } = await supabase
         .from('sessions')
-        .update({ current_block: index + 1 })
+        .update(updateData)
         .eq('candidate_name', candidateName)
         .eq('session_number', currentSession);
 

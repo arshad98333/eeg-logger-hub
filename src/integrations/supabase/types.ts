@@ -74,10 +74,12 @@ export type Database = {
       sessions: {
         Row: {
           candidate_name: string
+          current_block: number | null
           ended_at: string | null
           id: string
           impedance_h: string | null
           impedance_l: string | null
+          progress_percentage: number | null
           session_id: string | null
           session_number: number | null
           started_at: string
@@ -85,10 +87,12 @@ export type Database = {
         }
         Insert: {
           candidate_name: string
+          current_block?: number | null
           ended_at?: string | null
           id?: string
           impedance_h?: string | null
           impedance_l?: string | null
+          progress_percentage?: number | null
           session_id?: string | null
           session_number?: number | null
           started_at?: string
@@ -96,10 +100,12 @@ export type Database = {
         }
         Update: {
           candidate_name?: string
+          current_block?: number | null
           ended_at?: string | null
           id?: string
           impedance_h?: string | null
           impedance_l?: string | null
+          progress_percentage?: number | null
           session_id?: string | null
           session_number?: number | null
           started_at?: string
