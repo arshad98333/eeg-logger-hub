@@ -6,6 +6,19 @@ import { Header } from "@/components/Header";
 import { useSessionManagement } from "@/hooks/useSessionManagement";
 import { useEffect, useState } from "react";
 
+interface SessionData {
+  candidate_name: string;
+  session_number: number;
+  impedance_h: string;
+  impedance_l: string;
+  blocks: Array<{
+    block_index: number;
+    start_time: string;
+    end_time: string;
+    notes: string;
+  }>;
+}
+
 const Index = () => {
   const {
     selectedCandidate,
@@ -18,13 +31,31 @@ const Index = () => {
     setSelectedCandidate
   } = useSessionManagement();
   
-  const [currentSessionData, setCurrentSessionData] = useState(null);
+  const [currentSessionData, setCurrentSessionData] = useState<SessionData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchCurrentSession = async () => {
-      if (selectedCandidate) {
+      if (!selectedCandidate) {
+        setCurrentSessionData(null);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
         const data = await getCurrentSessionData();
-        setCurrentSessionData(data);
+        // Ensure the data has the required structure before setting it
+        if (data && data.blocks) {
+          setCurrentSessionData(data);
+        } else {
+          console.error('Invalid session data structure:', data);
+          setCurrentSessionData(null);
+        }
+      } catch (error) {
+        console.error('Error fetching session data:', error);
+        setCurrentSessionData(null);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -49,7 +80,7 @@ const Index = () => {
               onSave={handleSaveSession}
             />
             
-            {currentSessionData && (
+            {!isLoading && currentSessionData && (
               <SessionActions
                 selectedCandidate={selectedCandidate}
                 sessionData={currentSessionData}
