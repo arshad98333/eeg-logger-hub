@@ -6,8 +6,6 @@ import { SessionActions } from "@/components/SessionActions";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const STORAGE_KEY = "clinical-session-data";
-
 const Index = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(() => {
     const stored = localStorage.getItem("selectedCandidate");
@@ -31,7 +29,8 @@ const Index = () => {
       const { data: sessions, error } = await supabase
         .from('sessions')
         .select('session_number')
-        .eq('candidate_name', selectedCandidate);
+        .eq('candidate_name', selectedCandidate)
+        .order('session_number', { ascending: true });
 
       if (error) throw error;
 
@@ -74,10 +73,27 @@ const Index = () => {
     if (!selectedCandidate) return;
 
     try {
-      // Create or update the session
+      // Check if session already exists
+      const { data: existingSession } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('candidate_name', selectedCandidate)
+        .eq('session_number', sessionData.sessionNumber)
+        .maybeSingle();
+
+      if (existingSession) {
+        toast({
+          title: "Session Already Exists",
+          description: "This session has already been saved",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create new session
       const { data: sessionResult, error: sessionError } = await supabase
         .from('sessions')
-        .upsert({
+        .insert({
           candidate_name: selectedCandidate,
           session_number: sessionData.sessionNumber,
           started_at: new Date().toISOString()
@@ -88,7 +104,7 @@ const Index = () => {
       if (sessionError) throw sessionError;
 
       if (!sessionResult) {
-        throw new Error('Failed to create or update session');
+        throw new Error('Failed to create session');
       }
 
       // Save blocks for the session
@@ -96,7 +112,7 @@ const Index = () => {
         if (block.startTime || block.endTime || block.notes) {
           const { error: blockError } = await supabase
             .from('blocks')
-            .upsert({
+            .insert({
               session_id: sessionResult.id,
               block_index: index,
               start_time: block.startTime || null,
@@ -113,6 +129,11 @@ const Index = () => {
         title: "Session Saved",
         description: "Session data has been successfully saved",
       });
+      
+      // Check if this was the last session
+      if (sessionData.sessionNumber === 14) {
+        setIsAllSessionsCompleted(true);
+      }
     } catch (error) {
       console.error('Error saving session:', error);
       toast({
@@ -127,6 +148,7 @@ const Index = () => {
     if (!selectedCandidate || !isAllSessionsCompleted) return;
 
     try {
+      // Update all sessions for this candidate as completed
       const { error } = await supabase
         .from('sessions')
         .update({ ended_at: new Date().toISOString() })
@@ -134,7 +156,11 @@ const Index = () => {
 
       if (error) throw error;
 
+      // Clear all local storage
       localStorage.removeItem("selectedCandidate");
+      localStorage.removeItem(STORAGE_KEY);
+      
+      // Reset state
       setSelectedCandidate(null);
       setIsAllSessionsCompleted(false);
 
