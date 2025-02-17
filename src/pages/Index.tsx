@@ -1,9 +1,12 @@
+
 import { useState, useEffect } from "react";
 import { CandidateManagement } from "@/components/CandidateManagement";
 import { SessionLogging, STORAGE_KEY, CURRENT_SESSION_KEY } from "@/components/SessionLogging";
 import { SessionActions } from "@/components/SessionActions";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(() => {
@@ -212,6 +215,15 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-clinical-100">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">EEG Logger Hub</h1>
+          <Link to="/dashboard">
+            <Button variant="outline">
+              Open Dashboard
+            </Button>
+          </Link>
+        </div>
+
         <CandidateManagement
           onSelectCandidate={setSelectedCandidate}
           onAddCandidate={handleAddCandidate}
