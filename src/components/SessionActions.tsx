@@ -30,29 +30,25 @@ export const SessionActions = ({
     doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
   };
 
-  const handleSharePDFViaWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    const pdfData = doc.output('datauristring');
-    window.open(`https://wa.me/?text=${encodeURIComponent('Clinical Session Report')}&document=${encodeURIComponent(pdfData)}`, '_blank');
-  };
-
   const formatSessionData = (sessionData: any) => {
-    const blocks = sessionData.blocks;
+    if (!sessionData || !Array.isArray(sessionData.blocks)) {
+      return "No session data available";
+    }
+
     let formattedText = `Session : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
     formattedText += `Session ID : ${selectedCandidate}\n`;
-    formattedText += `Impedence : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n`;
+    formattedText += `Impedence : H-${sessionData.impedanceH || 'N/A'}/L-${sessionData.impedanceL || 'N/A'}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    blocks.forEach((block: any, index: number) => {
-      if (block.startTime && block.endTime) {
-        formattedText += `Block ${index}: ${block.startTime}\t${block.endTime}\n`;
+    sessionData.blocks.forEach((block: any, index: number) => {
+      if (block && (block.startTime || block.endTime)) {
+        formattedText += `Block ${index}: ${block.startTime || 'N/A'}\t${block.endTime || 'N/A'}\n`;
       }
     });
 
     formattedText += `\nNOTES:\n`;
-    blocks.forEach((block: any, index: number) => {
-      formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
+    sessionData.blocks.forEach((block: any, index: number) => {
+      formattedText += `Block ${index}: ${block?.notes || 'NO NOTES'}\n`;
     });
 
     return formattedText;
@@ -64,6 +60,7 @@ export const SessionActions = ({
         variant="outline" 
         onClick={handleShareToWhatsApp}
         className="w-full sm:w-auto"
+        disabled={!sessionData}
       >
         Share Text to WhatsApp
       </Button>
@@ -72,16 +69,9 @@ export const SessionActions = ({
         variant="outline" 
         onClick={handleDownloadPDF}
         className="w-full sm:w-auto"
+        disabled={!sessionData}
       >
         Download as PDF
-      </Button>
-
-      <Button 
-        variant="outline" 
-        onClick={handleSharePDFViaWhatsApp}
-        className="w-full sm:w-auto"
-      >
-        Share PDF via WhatsApp
       </Button>
 
       {isAllSessionsCompleted && (
