@@ -125,6 +125,9 @@ const Dashboard = () => {
                       fill="currentColor"
                     />
                   </div>
+                  <div className="text-sm font-medium text-clinical-600">
+                    Session {session.current_session} - Block {session.current_block}
+                  </div>
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -135,17 +138,14 @@ const Dashboard = () => {
                       />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent className="bg-white p-2 rounded-lg shadow-lg">
-                    <div className="text-sm font-medium">
-                      <p className="text-gray-900">Currently on:</p>
-                      <p className="text-clinical-600">Session {session.current_session}</p>
-                      <p className="text-clinical-600">Block {session.current_block} of 7</p>
+                  <TooltipContent className="bg-white p-3 rounded-lg shadow-lg">
+                    <div className="font-medium">
+                      <span className="text-2xl text-clinical-600">
+                        Session {session.current_session} - Block {session.current_block}
+                      </span>
                     </div>
                   </TooltipContent>
                 </Tooltip>
-                <div className="mt-2 text-sm text-gray-600">
-                  {session.total_progress.toFixed(1)}% Complete
-                </div>
               </Card>
             ))}
           </div>
