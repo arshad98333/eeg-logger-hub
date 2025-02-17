@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -33,21 +34,12 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Fetch analysis immediately when component mounts
     fetchAnalysis();
-
-    const scheduleNextAnalysis = () => {
-      const minInterval = 40 * 60 * 1000; // 40 minutes
-      const maxInterval = 80 * 60 * 1000; // 1h20m
-      const randomInterval = Math.random() * (maxInterval - minInterval) + minInterval;
-      
-      return setTimeout(async () => {
-        await triggerAnalysis();
-        scheduleNextAnalysis();
-      }, randomInterval);
-    };
-
-    const timer = scheduleNextAnalysis();
-    return () => clearTimeout(timer);
+    
+    // Set up interval to fetch every 30 minutes
+    const interval = setInterval(fetchAnalysis, 30 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const calculateCompletionRate = (candidate: AnalysisProps['data'][0]) => {
@@ -69,16 +61,26 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
 
   const fetchAnalysis = async () => {
     try {
+      console.log("Fetching analysis data...");
       const { data: analysisData, error } = await supabase
         .from('session_analysis')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching analysis:', error);
+        throw error;
+      }
 
-      setAnalysis(analysisData);
+      if (!analysisData || analysisData.length === 0) {
+        console.log("No analysis data found, triggering analysis...");
+        await triggerAnalysis();
+      } else {
+        console.log(`Fetched ${analysisData.length} analysis records`);
+        setAnalysis(analysisData);
+      }
     } catch (error) {
-      console.error('Error fetching analysis:', error);
+      console.error('Error in fetchAnalysis:', error);
       toast({
         title: "Error",
         description: "Failed to fetch analysis data",
@@ -90,14 +92,22 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
   const triggerAnalysis = async () => {
     try {
       setIsAnalyzing(true);
+      console.log("Triggering analysis...");
+      
       const response = await supabase.functions.invoke('analyze-sessions');
-      if (!response.error) {
-        await fetchAnalysis();
-        toast({
-          title: "Analysis Updated",
-          description: "Session analysis has been refreshed",
-        });
+      
+      if (response.error) {
+        console.error('Error from analyze-sessions:', response.error);
+        throw response.error;
       }
+      
+      console.log("Analysis completed, fetching updated data...");
+      await fetchAnalysis();
+      
+      toast({
+        title: "Analysis Updated",
+        description: "Session analysis has been refreshed",
+      });
     } catch (error) {
       console.error('Error triggering analysis:', error);
       toast({
@@ -112,7 +122,14 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm text-muted-foreground">
+          {analysis.length > 0 ? (
+            `Last updated: ${new Date(analysis[0].created_at).toLocaleString()}`
+          ) : (
+            "No analysis data available"
+          )}
+        </div>
         <Button 
           onClick={triggerAnalysis} 
           disabled={isAnalyzing}
@@ -135,41 +152,49 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {analysis.map((item) => {
-              const candidateData = data.find(d => d.name === item.candidate_name);
-              const completionRate = candidateData ? calculateCompletionRate(candidateData) : 0;
+            {analysis.length > 0 ? (
+              analysis.map((item) => {
+                const candidateData = data.find(d => d.name === item.candidate_name);
+                const completionRate = candidateData ? calculateCompletionRate(candidateData) : 0;
 
-              return (
-                <TableRow key={`${item.candidate_name}-${item.created_at}`}>
-                  <TableCell className="font-medium">{item.candidate_name}</TableCell>
-                  <TableCell>
-                    {candidateData?.sessionCount || 0}/14
-                  </TableCell>
-                  <TableCell>
-                    {completionRate}%
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        (candidateData?.sessionCount || 0) >= 12
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {(candidateData?.sessionCount || 0) >= 12 ? "Qualified" : "In Progress"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(item.created_at).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="max-w-md">
-                    <div className="text-sm text-gray-600 truncate">
-                      {item.analysis}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                return (
+                  <TableRow key={`${item.candidate_name}-${item.created_at}`}>
+                    <TableCell className="font-medium">{item.candidate_name}</TableCell>
+                    <TableCell>
+                      {candidateData?.sessionCount || 0}/14
+                    </TableCell>
+                    <TableCell>
+                      {completionRate}%
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${
+                          (candidateData?.sessionCount || 0) >= 12
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {(candidateData?.sessionCount || 0) >= 12 ? "Qualified" : "In Progress"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(item.created_at).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="max-w-md">
+                      <div className="text-sm text-gray-600 whitespace-pre-line">
+                        {item.analysis}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8">
+                  No analysis data available. Click "Run Analysis" to generate insights.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
