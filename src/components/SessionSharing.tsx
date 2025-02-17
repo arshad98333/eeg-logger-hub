@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
 import { formatSessionData } from "@/utils/sessionFormatter";
+import { CheckCircle } from "lucide-react";
 
 interface SessionSharingProps {
   selectedCandidate: string | null;
