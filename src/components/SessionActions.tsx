@@ -84,16 +84,31 @@ export const SessionActions = ({
     }
   };
 
+  const formatTimeTo12Hour = (time24: string) => {
+    if (!time24) return '';
+    try {
+      const [hours, minutes, seconds] = time24.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'pm' : 'am';
+      const hour12 = hour % 12 || 12;
+      return `${String(hour12).padStart(2, '0')}:${minutes}:${seconds || '00'} ${ampm}`;
+    } catch {
+      return '';
+    }
+  };
+
   const formatSessionData = (data: any) => {
     let formattedText = `Session : ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
     formattedText += `Session ID : ${selectedCandidate}\n`;
     formattedText += `Impedence : H-${data.impedanceH || 'N/A'}/L-${data.impedanceL || 'N/A'}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    // Add timings in two columns
+    // Add timings in two columns with both 24h and 12h formats
     data.blocks.forEach((block: any) => {
       if (block && block.startTime && block.endTime) {
-        formattedText += `${block.startTime}\t${block.endTime}\n`;
+        const start12h = formatTimeTo12Hour(block.startTime);
+        const end12h = formatTimeTo12Hour(block.endTime);
+        formattedText += `${block.startTime} (${start12h})\t${block.endTime} (${end12h})\n`;
       }
     });
 

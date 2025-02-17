@@ -12,6 +12,19 @@ interface TimeBlockProps {
   onChange: (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => void;
 }
 
+const formatTimeTo12Hour = (time24: string) => {
+  if (!time24) return '';
+  try {
+    const [hours, minutes, seconds] = time24.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const hour12 = hour % 12 || 12;
+    return `${String(hour12).padStart(2, '0')}:${minutes}:${seconds || '00'} ${ampm}`;
+  } catch {
+    return '';
+  }
+};
+
 export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBlockProps) => {
   return (
     <div className="space-y-4 p-4 bg-clinical-50 rounded-lg animate-fade-in">
@@ -29,6 +42,11 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
             value={startTime}
             onChange={(e) => onChange(index, "startTime", e.target.value)}
           />
+          {startTime && (
+            <p className="text-sm text-gray-500 mt-1">
+              {formatTimeTo12Hour(startTime)}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor={`end-time-${index}`}>End Time</Label>
@@ -39,6 +57,11 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
             value={endTime}
             onChange={(e) => onChange(index, "endTime", e.target.value)}
           />
+          {endTime && (
+            <p className="text-sm text-gray-500 mt-1">
+              {formatTimeTo12Hour(endTime)}
+            </p>
+          )}
         </div>
       </div>
       <div className="space-y-2">
