@@ -64,9 +64,12 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           .select('*')
           .eq('candidate_name', candidateName)
           .eq('session_number', currentSession)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error loading session state:', error);
+          return;
+        }
 
         if (data) {
           setSessionData(prev => ({
@@ -75,9 +78,34 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
             impedanceH: data.impedance_h || "",
             impedanceL: data.impedance_l || "",
           }));
+        } else {
+          // If no session exists, create one
+          const { error: insertError } = await supabase
+            .from('sessions')
+            .insert({
+              candidate_name: candidateName,
+              session_number: currentSession,
+              session_id: sessionData.sessionId,
+              current_block: 1,
+              started_at: new Date().toISOString()
+            });
+
+          if (insertError) {
+            console.error('Error creating new session:', insertError);
+            toast({
+              title: "Error",
+              description: "Failed to create new session",
+              variant: "destructive"
+            });
+          }
         }
       } catch (error) {
         console.error('Error loading session state:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load session state",
+          variant: "destructive"
+        });
       }
     };
 
