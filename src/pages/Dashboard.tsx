@@ -41,7 +41,7 @@ const Dashboard = () => {
           candidate_name,
           session_number,
           blocks (
-            notes,
+            block_index,
             start_time,
             end_time
           )
@@ -65,32 +65,33 @@ const Dashboard = () => {
       if (!candidateMap.has(session.candidate_name)) {
         candidateMap.set(session.candidate_name, {
           name: session.candidate_name,
-          sessions: new Set(),
+          sessions: new Map(),
           totalBlocks: 0,
           completedBlocks: 0
         });
       }
 
       const candidate = candidateMap.get(session.candidate_name);
-      candidate.sessions.add(session.session_number);
-      
-      if (session.blocks) {
-        session.blocks.forEach((block: any) => {
-          candidate.totalBlocks++;
-          if (block.start_time && block.end_time) {
-            candidate.completedBlocks++;
-          }
-        });
-      }
+      candidate.sessions.set(session.session_number, {
+        session_number: session.session_number,
+        blocks: session.blocks || []
+      });
     });
 
     return Array.from(candidateMap.values())
-      .map(candidate => ({
-        ...candidate,
-        sessionCount: candidate.sessions.size,
-        progress: (candidate.sessions.size / 14) * 100,
-        status: getCompletionStatus(candidate.sessions.size)
-      }))
+      .map(candidate => {
+        const sessionsArray = Array.from(candidate.sessions.values());
+        const sessionCount = candidate.sessions.size;
+        const progress = (sessionCount / 14) * 100;
+
+        return {
+          name: candidate.name,
+          sessionCount,
+          progress,
+          status: getCompletionStatus(sessionCount),
+          sessions: sessionsArray
+        };
+      })
       .sort((a, b) => b.sessionCount - a.sessionCount);
   };
 
