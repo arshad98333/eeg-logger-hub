@@ -2,10 +2,24 @@
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
+import { useToast } from "@/hooks/use-toast";
+
+interface BlockData {
+  startTime: string;
+  endTime: string;
+  notes: string;
+}
+
+interface SessionData {
+  sessionNumber: number;
+  impedanceH: string;
+  impedanceL: string;
+  blocks: BlockData[];
+}
 
 interface SessionActionsProps {
   selectedCandidate: string | null;
-  sessionData: any;
+  sessionData: SessionData | null;
   isAllSessionsCompleted: boolean;
   onMarkComplete: () => void;
 }
@@ -14,10 +28,19 @@ export const SessionActions = ({
   selectedCandidate,
   sessionData,
   isAllSessionsCompleted,
-  onMarkComplete
+  onMarkComplete,
 }: SessionActionsProps) => {
+  const { toast } = useToast();
+
   const handleShareToWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
+    if (!selectedCandidate || !sessionData) {
+      toast({
+        title: "Error",
+        description: "No session data available to share",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const formattedText = formatSessionData(sessionData);
     const encodedText = encodeURIComponent(formattedText);
@@ -25,33 +48,46 @@ export const SessionActions = ({
   };
 
   const handleDownloadPDF = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+    if (!selectedCandidate || !sessionData) {
+      toast({
+        title: "Error",
+        description: "No session data available to download",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const doc = generateSessionPDF(selectedCandidate, sessionData);
+      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+      toast({
+        title: "Success",
+        description: "PDF downloaded successfully",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSharePDFViaWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    const pdfData = doc.output('datauristring');
-    window.open(`https://wa.me/?text=${encodeURIComponent('Clinical Session Report')}&document=${encodeURIComponent(pdfData)}`, '_blank');
-  };
-
-  const formatSessionData = (sessionData: any) => {
-    const blocks = sessionData.blocks;
-    let formattedText = `Session : ${String(sessionData.sessionNumber).padStart(2, '0')}\n`;
+  const formatSessionData = (data: SessionData): string => {
+    let formattedText = `Session : ${String(data.sessionNumber).padStart(2, '0')}\n`;
     formattedText += `Session ID : ${selectedCandidate}\n`;
-    formattedText += `Impedence : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n`;
+    formattedText += `Impedance : H-${data.impedanceH}/L-${data.impedanceL}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    blocks.forEach((block: any, index: number) => {
+    data.blocks.forEach((block, index) => {
       if (block.startTime && block.endTime) {
         formattedText += `Block ${index}: ${block.startTime}\t${block.endTime}\n`;
       }
     });
 
     formattedText += `\nNOTES:\n`;
-    blocks.forEach((block: any, index: number) => {
+    data.blocks.forEach((block, index) => {
       formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
     });
 
@@ -74,14 +110,6 @@ export const SessionActions = ({
         className="w-full sm:w-auto"
       >
         Download as PDF
-      </Button>
-
-      <Button 
-        variant="outline" 
-        onClick={handleSharePDFViaWhatsApp}
-        className="w-full sm:w-auto"
-      >
-        Share PDF via WhatsApp
       </Button>
 
       {isAllSessionsCompleted && (
