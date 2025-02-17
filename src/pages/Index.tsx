@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { CandidateManagement } from "@/components/CandidateManagement";
-import { SessionLogging } from "@/components/SessionLogging";
+import { SessionLogging, STORAGE_KEY } from "@/components/SessionLogging";
 import { SessionActions } from "@/components/SessionActions";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
