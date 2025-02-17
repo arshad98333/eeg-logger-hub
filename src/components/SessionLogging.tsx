@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,8 @@ import { TimeBlock } from "./TimeBlock";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+const STORAGE_KEY = "clinical-session-data";
 
 interface SessionLoggingProps {
   candidateName: string;
@@ -32,14 +34,47 @@ interface SessionData {
 
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
   const [currentSession, setCurrentSession] = useState(initialSession);
-  const [sessionData, setSessionData] = useState<SessionData>({
-    candidateName,
-    sessionNumber: currentSession,
-    impedanceH: "",
-    impedanceL: "",
-    blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+  const [sessionData, setSessionData] = useState<SessionData>(() => {
+    // Initialize from localStorage if available
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[candidateName];
+      if (candidateData && candidateData[initialSession]) {
+        return candidateData[initialSession];
+      }
+    }
+    return {
+      candidateName,
+      sessionNumber: initialSession,
+      impedanceH: "",
+      impedanceL: "",
+      blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+    };
   });
+  
   const { toast } = useToast();
+
+  // Load session data when switching sessions
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[candidateName];
+      if (candidateData && candidateData[currentSession]) {
+        setSessionData(candidateData[currentSession]);
+      } else {
+        // Initialize new session
+        setSessionData({
+          candidateName,
+          sessionNumber: currentSession,
+          impedanceH: "",
+          impedanceL: "",
+          blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+        });
+      }
+    }
+  }, [currentSession, candidateName]);
 
   const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
     const newBlocks = [...sessionData.blocks];
@@ -48,84 +83,34 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       [field]: value,
     };
 
-    setSessionData(prev => ({
-      ...prev,
+    const newSessionData = {
+      ...sessionData,
       blocks: newBlocks
-    }));
+    };
+    
+    setSessionData(newSessionData);
 
-    if (field === "isRecording" && value === true) {
-      // Only save to database when recording starts
-      saveBlockToDatabase(index, newBlocks[index]);
-    }
-  };
-
-  const saveBlockToDatabase = async (index: number, blockData: Block) => {
-    try {
-      const { data: sessionRecord, error: sessionError } = await supabase
-        .from('sessions')
-        .insert({
-          candidate_name: candidateName,
-          session_number: currentSession,
-          started_at: new Date().toISOString(),
-          user_id: 'default'
-        })
-        .select()
-        .single();
-
-      if (sessionError) throw sessionError;
-
-      const { error: blockError } = await supabase
-        .from('blocks')
-        .insert({
-          session_id: sessionRecord.id,
-          block_index: index,
-          start_time: blockData.startTime,
-          end_time: blockData.endTime,
-          notes: blockData.notes,
-          is_recording: blockData.isRecording,
-        });
-
-      if (blockError) throw blockError;
-
-      toast({
-        title: "Recording Started",
-        description: `Block ${index + 1} recording initiated`,
-      });
-    } catch (error) {
-      console.error('Error saving block:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start recording",
-        variant: "destructive",
-      });
-    }
+    // Save to localStorage on every change
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const allSessions = stored ? JSON.parse(stored) : {};
+    allSessions[candidateName] = {
+      ...allSessions[candidateName],
+      [currentSession]: newSessionData
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
   };
 
   const handleSessionChange = (direction: 'next' | 'prev') => {
     if (direction === 'next' && currentSession < 14) {
       setCurrentSession(prev => prev + 1);
-      setSessionData(prev => ({
-        ...prev,
-        sessionNumber: currentSession + 1,
-        blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-      }));
     } else if (direction === 'prev' && currentSession > 1) {
       setCurrentSession(prev => prev - 1);
-      setSessionData(prev => ({
-        ...prev,
-        sessionNumber: currentSession - 1,
-        blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
-      }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(sessionData);
-    toast({
-      title: "Success",
-      description: "Session saved successfully",
-    });
   };
 
   return (
@@ -172,10 +157,18 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   id="impedanceH"
                   placeholder="H-value"
                   value={sessionData.impedanceH}
-                  onChange={(e) => setSessionData(prev => ({
-                    ...prev,
-                    impedanceH: e.target.value
-                  }))}
+                  onChange={(e) => {
+                    const newData = { ...sessionData, impedanceH: e.target.value };
+                    setSessionData(newData);
+                    // Save to localStorage
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    const allSessions = stored ? JSON.parse(stored) : {};
+                    allSessions[candidateName] = {
+                      ...allSessions[candidateName],
+                      [currentSession]: newData
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -184,10 +177,18 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   id="impedanceL"
                   placeholder="L-value"
                   value={sessionData.impedanceL}
-                  onChange={(e) => setSessionData(prev => ({
-                    ...prev,
-                    impedanceL: e.target.value
-                  }))}
+                  onChange={(e) => {
+                    const newData = { ...sessionData, impedanceL: e.target.value };
+                    setSessionData(newData);
+                    // Save to localStorage
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    const allSessions = stored ? JSON.parse(stored) : {};
+                    allSessions[candidateName] = {
+                      ...allSessions[candidateName],
+                      [currentSession]: newData
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+                  }}
                 />
               </div>
             </div>
