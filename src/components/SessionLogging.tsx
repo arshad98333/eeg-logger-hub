@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,23 +148,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
   };
 
-  const exampleSession = {
-    candidateName: "Example",
-    sessionNumber: 12,
-    sessionId: "AD0350",
-    impedanceH: "20K",
-    impedanceL: "13K",
-    blocks: [
-      { startTime: "13:00:34", endTime: "13:04:27", notes: "NO NOTES", isRecording: false },
-      { startTime: "13:04:45", endTime: "13:08:36", notes: "NO NOTES", isRecording: false },
-      { startTime: "13:08:52", endTime: "13:12:44", notes: "NO NOTES", isRecording: false },
-      { startTime: "13:13:06", endTime: "13:17:04", notes: "NO NOTES", isRecording: false },
-      { startTime: "13:17:22", endTime: "13:21:19", notes: "NO NOTES", isRecording: false },
-      { startTime: "13:21:34", endTime: "13:25:31", notes: "NO NOTES", isRecording: false },
-      { startTime: "13:25:55", endTime: "13:29:47", notes: "NO NOTES", isRecording: false }
-    ]
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6 animate-slide-up px-4 md:px-0">
       <Card className="p-4 md:p-6">
@@ -199,7 +183,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         </div>
 
         <div className="space-y-6">
-          {/* Session ID input */}
           <div className="space-y-2">
             <Label htmlFor="sessionId">Session ID</Label>
             <Input
@@ -209,7 +192,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
               onChange={(e) => {
                 const newData = { ...sessionData, sessionId: e.target.value };
                 setSessionData(newData);
-                // Save to localStorage
                 const stored = localStorage.getItem(STORAGE_KEY);
                 const allSessions = stored ? JSON.parse(stored) : {};
                 allSessions[candidateName] = {
@@ -234,7 +216,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceH: e.target.value };
                     setSessionData(newData);
-                    // Save to localStorage
                     const stored = localStorage.getItem(STORAGE_KEY);
                     const allSessions = stored ? JSON.parse(stored) : {};
                     allSessions[candidateName] = {
@@ -254,7 +235,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceL: e.target.value };
                     setSessionData(newData);
-                    // Save to localStorage
                     const stored = localStorage.getItem(STORAGE_KEY);
                     const allSessions = stored ? JSON.parse(stored) : {};
                     allSessions[candidateName] = {
