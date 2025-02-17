@@ -72,7 +72,8 @@ export const SessionActions = ({
     if (!validateSessionData() || !sessionData) return;
 
     try {
-      const pdfData = {
+      // Use the exact frontend data for PDF generation
+      generateSessionPDF(selectedCandidate!, {
         sessionNumber: sessionData.sessionNumber,
         impedanceH: sessionData.impedanceH,
         impedanceL: sessionData.impedanceL,
@@ -82,10 +83,7 @@ export const SessionActions = ({
           end_time: block.endTime,
           notes: block.notes
         }))
-      };
-      
-      const doc = generateSessionPDF(selectedCandidate!, pdfData);
-      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+      });
       
       toast({
         title: "Success",
@@ -102,23 +100,21 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: SessionData) => {
-    let formattedText = `Session ${data.sessionNumber}\n`;
-    formattedText += `Session ID: ${data.sessionId}\n`;
+    let formattedText = `Session Details:\n`;
+    formattedText += `Session Number: ${data.sessionNumber}\n`;
+    formattedText += `Session ID: ${data.sessionId}\n\n`;
+    
     formattedText += `Impedance Values:\n`;
-    formattedText += `High: ${data.impedanceH}\n`;
-    formattedText += `Low: ${data.impedanceL}\n\n`;
-    formattedText += `Blocks:\n`;
-
+    formattedText += `High: ${data.impedanceH || 'Not set'}\n`;
+    formattedText += `Low: ${data.impedanceL || 'Not set'}\n\n`;
+    
+    formattedText += `Block Details:\n`;
     data.blocks.forEach((block, index) => {
-      formattedText += `\nBlock ${index}:\n`;
-      if (block.startTime) {
-        formattedText += `Start Time: ${block.startTime}\n`;
-      }
-      if (block.endTime) {
-        formattedText += `End Time: ${block.endTime}\n`;
-      }
-      if (block.notes && block.notes.trim() !== '') {
-        formattedText += `Notes: ${block.notes}\n`;
+      if (block.startTime || block.endTime || block.notes) {
+        formattedText += `\nBlock ${index + 1}:\n`;
+        if (block.startTime) formattedText += `Start: ${block.startTime}\n`;
+        if (block.endTime) formattedText += `End: ${block.endTime}\n`;
+        if (block.notes) formattedText += `Notes: ${block.notes}\n`;
       }
     });
 
