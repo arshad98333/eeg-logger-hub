@@ -51,30 +51,38 @@ const Index = () => {
     });
   };
 
-  const scrollToAdmin = () => {
-    const adminPanel = document.getElementById('admin-panel');
-    if (adminPanel) {
-      adminPanel.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-clinical-100">
+        <div className="container mx-auto py-8 space-y-8">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+            <AdminPanel />
+          </div>
+          
+          <div className="mt-8">
+            <CandidateManagement
+              candidates={candidates}
+              onSelectCandidate={setSelectedCandidate}
+              onAddCandidate={handleAddCandidate}
+            />
+
+            {selectedCandidate && (
+              <SessionLogging
+                candidateName={selectedCandidate}
+                sessionNumber={1}
+                onSave={handleSaveSession}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-clinical-100">
       <div className="container mx-auto py-8 space-y-8">
-        {isAdmin && (
-          <div className="flex justify-end">
-            <Button
-              onClick={scrollToAdmin}
-              variant="outline"
-              className="mb-4"
-            >
-              Go to Admin Panel
-            </Button>
-          </div>
-        )}
-        
-        {isAdmin && <div id="admin-panel"><AdminPanel /></div>}
-        
         <CandidateManagement
           candidates={candidates}
           onSelectCandidate={setSelectedCandidate}
@@ -94,3 +102,4 @@ const Index = () => {
 };
 
 export default Index;
+
