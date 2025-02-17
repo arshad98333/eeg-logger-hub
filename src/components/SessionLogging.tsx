@@ -44,10 +44,12 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         return candidateData[initialSession];
       }
     }
+    
+    // Initialize empty session data
     return {
       candidateName,
       sessionNumber: initialSession,
-      sessionId: "0",
+      sessionId: currentSession === 1 ? "1" : "0", // Only set initial session ID for session 1
       impedanceH: "",
       impedanceL: "",
       blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
@@ -72,23 +74,28 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         }
 
         if (data) {
+          // If data exists, load it
           setSessionData(prev => ({
             ...prev,
-            sessionId: data.session_id || "0",
+            sessionId: data.session_id || String(currentSession),
             impedanceH: data.impedance_h || "",
             impedanceL: data.impedance_l || "",
           }));
         } else {
-          // If no session exists, create one
+          // If no session exists, create one with appropriate initial values
+          const initialSessionData = {
+            candidate_name: candidateName,
+            session_number: currentSession,
+            session_id: currentSession === 1 ? "1" : "0", // Only set session ID for first session
+            current_block: 1,
+            started_at: new Date().toISOString(),
+            impedance_h: currentSession === 1 ? sessionData.impedanceH : "", // Only keep impedance values for session 1
+            impedance_l: currentSession === 1 ? sessionData.impedanceL : ""
+          };
+
           const { error: insertError } = await supabase
             .from('sessions')
-            .insert({
-              candidate_name: candidateName,
-              session_number: currentSession,
-              session_id: sessionData.sessionId,
-              current_block: 1,
-              started_at: new Date().toISOString()
-            });
+            .insert(initialSessionData);
 
           if (insertError) {
             console.error('Error creating new session:', insertError);
@@ -97,6 +104,17 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
               description: "Failed to create new session",
               variant: "destructive"
             });
+          } else {
+            // Reset session data for non-first sessions
+            if (currentSession !== 1) {
+              setSessionData(prev => ({
+                ...prev,
+                sessionId: "0",
+                impedanceH: "",
+                impedanceL: "",
+                blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+              }));
+            }
           }
         }
       } catch (error) {
