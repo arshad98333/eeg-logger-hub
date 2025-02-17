@@ -4,6 +4,7 @@ import { SessionLogging } from "@/components/SessionLogging";
 import { SessionActions } from "@/components/SessionActions";
 import { Header } from "@/components/Header";
 import { useSessionManagement } from "@/hooks/useSessionManagement";
+import { useEffect, useState } from "react";
 
 const Index = () => {
   const {
@@ -16,6 +17,19 @@ const Index = () => {
     getInitialSessionNumber,
     setSelectedCandidate
   } = useSessionManagement();
+  
+  const [currentSessionData, setCurrentSessionData] = useState(null);
+
+  useEffect(() => {
+    const fetchCurrentSession = async () => {
+      if (selectedCandidate) {
+        const data = await getCurrentSessionData();
+        setCurrentSessionData(data);
+      }
+    };
+    
+    fetchCurrentSession();
+  }, [selectedCandidate]);
 
   return (
     <div className="min-h-screen bg-clinical-100">
@@ -35,10 +49,10 @@ const Index = () => {
               onSave={handleSaveSession}
             />
             
-            {getCurrentSessionData && (
+            {currentSessionData && (
               <SessionActions
                 selectedCandidate={selectedCandidate}
-                sessionData={getCurrentSessionData()}
+                sessionData={currentSessionData}
                 isAllSessionsCompleted={isAllSessionsCompleted}
                 onMarkComplete={handleMarkAsComplete}
               />

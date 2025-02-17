@@ -5,15 +5,17 @@ import { generateSessionPDF } from "@/utils/pdfGenerator";
 import { useToast } from "@/hooks/use-toast";
 
 interface BlockData {
-  startTime: string;
-  endTime: string;
+  block_index: number;
+  start_time: string;
+  end_time: string;
   notes: string;
 }
 
 interface SessionData {
-  sessionNumber: number;
-  impedanceH: string;
-  impedanceL: string;
+  candidate_name: string;
+  session_number: number;
+  impedance_h: string;
+  impedance_l: string;
   blocks: BlockData[];
 }
 
@@ -59,7 +61,7 @@ export const SessionActions = ({
 
     try {
       const doc = generateSessionPDF(selectedCandidate, sessionData);
-      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+      doc.save(`${selectedCandidate}-session-${sessionData.session_number}.pdf`);
       toast({
         title: "Success",
         description: "PDF downloaded successfully",
@@ -75,20 +77,20 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: SessionData): string => {
-    let formattedText = `Session : ${String(data.sessionNumber).padStart(2, '0')}\n`;
+    let formattedText = `Session : ${String(data.session_number).padStart(2, '0')}\n`;
     formattedText += `Session ID : ${selectedCandidate}\n`;
-    formattedText += `Impedance : H-${data.impedanceH}/L-${data.impedanceL}\n`;
+    formattedText += `Impedance : H-${data.impedance_h}/L-${data.impedance_l}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    data.blocks.forEach((block, index) => {
-      if (block.startTime && block.endTime) {
-        formattedText += `Block ${index}: ${block.startTime}\t${block.endTime}\n`;
+    data.blocks.forEach((block) => {
+      if (block.start_time && block.end_time) {
+        formattedText += `Block ${block.block_index}: ${block.start_time}\t${block.end_time}\n`;
       }
     });
 
     formattedText += `\nNOTES:\n`;
-    data.blocks.forEach((block, index) => {
-      formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
+    data.blocks.forEach((block) => {
+      formattedText += `Block ${block.block_index}: ${block.notes || 'NO NOTES'}\n`;
     });
 
     return formattedText;
