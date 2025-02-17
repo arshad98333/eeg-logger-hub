@@ -56,7 +56,7 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   let yPosition = 130;
   sessionData.blocks.forEach((block, index) => {
     if (block.startTime && block.endTime) {
-      doc.text(`Block ${index + 1}:`, 25, yPosition);
+      doc.text(`Block ${index}:`, 25, yPosition);
       doc.text(`${block.startTime}  -  ${block.endTime}`, 60, yPosition);
       yPosition += 8;
     }
@@ -74,7 +74,7 @@ export const generateSessionPDF = (candidateName: string, sessionData: SessionDa
   yPosition = 215;
   sessionData.blocks.forEach((block, index) => {
     const note = block.notes || 'NO NOTES';
-    doc.text(`Block ${index + 1}:`, 25, yPosition);
+    doc.text(`Block ${index}:`, 25, yPosition);
     const splitNotes = doc.splitTextToSize(note, 150);
     doc.text(splitNotes, 60, yPosition);
     yPosition += 8 * splitNotes.length + 2;

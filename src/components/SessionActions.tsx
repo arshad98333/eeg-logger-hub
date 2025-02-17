@@ -44,25 +44,26 @@ export const SessionActions = ({
     formattedText += `Impedence : H-${sessionData.impedanceH}/L-${sessionData.impedanceL}\n`;
     formattedText += `TIMINGS:\n\n`;
 
-    blocks.forEach((block: any) => {
+    blocks.forEach((block: any, index: number) => {
       if (block.startTime && block.endTime) {
-        formattedText += `${block.startTime}\t${block.endTime}\n`;
+        formattedText += `Block ${index}: ${block.startTime}\t${block.endTime}\n`;
       }
     });
 
     formattedText += `\nNOTES:\n`;
-    blocks.forEach((block: any) => {
-      formattedText += `${block.notes || 'NO NOTES'}\n`;
+    blocks.forEach((block: any, index: number) => {
+      formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
     });
 
     return formattedText;
   };
 
   return (
-    <div className="flex gap-4 justify-end mt-6">
+    <div className="flex flex-col sm:flex-row gap-4 justify-end mt-6">
       <Button 
         variant="outline" 
         onClick={handleShareToWhatsApp}
+        className="w-full sm:w-auto"
       >
         Share Text to WhatsApp
       </Button>
@@ -70,6 +71,7 @@ export const SessionActions = ({
       <Button 
         variant="outline" 
         onClick={handleDownloadPDF}
+        className="w-full sm:w-auto"
       >
         Download as PDF
       </Button>
@@ -77,6 +79,7 @@ export const SessionActions = ({
       <Button 
         variant="outline" 
         onClick={handleSharePDFViaWhatsApp}
+        className="w-full sm:w-auto"
       >
         Share PDF via WhatsApp
       </Button>
@@ -84,7 +87,7 @@ export const SessionActions = ({
       {isAllSessionsCompleted && (
         <Button 
           onClick={onMarkComplete}
-          className="bg-green-500 hover:bg-green-600"
+          className="w-full sm:w-auto bg-green-500 hover:bg-green-600"
         >
           <CheckCircle className="mr-2 h-4 w-4" />
           Mark as Complete
