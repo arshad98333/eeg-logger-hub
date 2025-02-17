@@ -34,10 +34,7 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch analysis immediately when component mounts
     fetchAnalysis();
-    
-    // Set up interval to fetch every 30 minutes
     const interval = setInterval(fetchAnalysis, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -69,6 +66,12 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
 
       if (error) {
         console.error('Error fetching analysis:', error);
+        // If table doesn't exist or no data, trigger analysis
+        if (error.code === '42P01' || error.code === 'PGRST116') {
+          console.log("No analysis data found, triggering analysis...");
+          await triggerAnalysis();
+          return;
+        }
         throw error;
       }
 
@@ -79,11 +82,11 @@ export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
         console.log(`Fetched ${analysisData.length} analysis records`);
         setAnalysis(analysisData);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in fetchAnalysis:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch analysis data",
+        description: error.message || "Failed to fetch analysis data",
         variant: "destructive",
       });
     }
