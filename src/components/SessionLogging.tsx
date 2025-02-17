@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,6 +145,23 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         variant: "destructive"
       });
     }
+  };
+
+  const exampleSession = {
+    candidateName: "Example",
+    sessionNumber: 12,
+    sessionId: "AD0350",
+    impedanceH: "20K",
+    impedanceL: "13K",
+    blocks: [
+      { startTime: "13:00:34", endTime: "13:04:27", notes: "NO NOTES", isRecording: false },
+      { startTime: "13:04:45", endTime: "13:08:36", notes: "NO NOTES", isRecording: false },
+      { startTime: "13:08:52", endTime: "13:12:44", notes: "NO NOTES", isRecording: false },
+      { startTime: "13:13:06", endTime: "13:17:04", notes: "NO NOTES", isRecording: false },
+      { startTime: "13:17:22", endTime: "13:21:19", notes: "NO NOTES", isRecording: false },
+      { startTime: "13:21:34", endTime: "13:25:31", notes: "NO NOTES", isRecording: false },
+      { startTime: "13:25:55", endTime: "13:29:47", notes: "NO NOTES", isRecording: false }
+    ]
   };
 
   return (
