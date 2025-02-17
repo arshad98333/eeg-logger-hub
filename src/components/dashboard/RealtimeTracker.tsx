@@ -34,14 +34,14 @@ interface TrackerProps {
 
 export const RealtimeTracker = ({ data }: TrackerProps) => {
   const getSessionStatus = (session: Session) => {
-    if (!session.blocks) return { completed: 0, message: "No blocks recorded" };
+    const blocks = session.blocks || [];
     
-    const completedBlocks = session.blocks.filter(
-      block => block.start_time && block.end_time
+    const completedBlocks = blocks.filter(
+      block => block?.start_time && block?.end_time
     ).length;
 
-    const inProgressBlocks = session.blocks.filter(
-      block => block.start_time && !block.end_time
+    const inProgressBlocks = blocks.filter(
+      block => block?.start_time && !block?.end_time
     ).length;
 
     return {
@@ -52,21 +52,23 @@ export const RealtimeTracker = ({ data }: TrackerProps) => {
   };
 
   const getLatestSessionInfo = (sessions: Session[]) => {
-    if (!sessions.length) return null;
+    if (!sessions || !sessions.length) return null;
     
     const latestSession = sessions[sessions.length - 1];
+    if (!latestSession) return null;
+
     const status = getSessionStatus(latestSession);
     
     return {
       sessionNumber: latestSession.session_number,
       ...status,
-      blocks: latestSession.blocks
+      blocks: latestSession.blocks || []
     };
   };
 
   return (
     <div className="space-y-4">
-      {data.map((candidate, index) => {
+      {(data || []).map((candidate, index) => {
         const latestSession = getLatestSessionInfo(candidate.sessions);
         
         return (
@@ -88,12 +90,12 @@ export const RealtimeTracker = ({ data }: TrackerProps) => {
                       <motion.div
                         className="h-full rounded-full"
                         style={{
-                          backgroundColor: candidate.status.color,
-                          opacity: candidate.status.opacity,
-                          width: `${candidate.progress}%`,
+                          backgroundColor: candidate.status?.color || '#cbd5e1',
+                          opacity: candidate.status?.opacity || 0.5,
+                          width: `${candidate.progress || 0}%`,
                         }}
                         initial={{ width: 0 }}
-                        animate={{ width: `${candidate.progress}%` }}
+                        animate={{ width: `${candidate.progress || 0}%` }}
                         transition={{ duration: 1, ease: "easeOut" }}
                       />
                     </TooltipTrigger>
@@ -106,7 +108,7 @@ export const RealtimeTracker = ({ data }: TrackerProps) => {
                             <p>{latestSession.message}</p>
                             <div className="mt-1 grid grid-cols-7 gap-1">
                               {Array.from({ length: 7 }).map((_, i) => {
-                                const block = latestSession.blocks.find(b => b.block_index === i);
+                                const block = (latestSession.blocks || []).find(b => b?.block_index === i);
                                 const status = block?.end_time ? "completed" : 
                                              block?.start_time ? "in-progress" : "pending";
                                 
@@ -134,7 +136,7 @@ export const RealtimeTracker = ({ data }: TrackerProps) => {
               </div>
               <div className="w-20 text-right">
                 <span className="font-mono font-medium">
-                  {candidate.sessionCount}/14
+                  {candidate.sessionCount || 0}/14
                 </span>
               </div>
               {index < 3 && (

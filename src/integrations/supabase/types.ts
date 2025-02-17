@@ -71,32 +71,14 @@ export type Database = {
         }
         Relationships: []
       }
-      session_analysis: {
-        Row: {
-          analysis: string
-          candidate_name: string
-          created_at: string
-          id: string
-        }
-        Insert: {
-          analysis: string
-          candidate_name: string
-          created_at?: string
-          id?: string
-        }
-        Update: {
-          analysis?: string
-          candidate_name?: string
-          created_at?: string
-          id?: string
-        }
-        Relationships: []
-      }
       sessions: {
         Row: {
           candidate_name: string
           ended_at: string | null
           id: string
+          impedance_h: string | null
+          impedance_l: string | null
+          session_id: string | null
           session_number: number | null
           started_at: string
           user_id: string | null
@@ -105,6 +87,9 @@ export type Database = {
           candidate_name: string
           ended_at?: string | null
           id?: string
+          impedance_h?: string | null
+          impedance_l?: string | null
+          session_id?: string | null
           session_number?: number | null
           started_at?: string
           user_id?: string | null
@@ -113,6 +98,9 @@ export type Database = {
           candidate_name?: string
           ended_at?: string | null
           id?: string
+          impedance_h?: string | null
+          impedance_l?: string | null
+          session_id?: string | null
           session_number?: number | null
           started_at?: string
           user_id?: string | null
