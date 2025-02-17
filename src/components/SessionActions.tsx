@@ -3,11 +3,22 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Download, Share } from "lucide-react";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+
+interface Block {
+  startTime: string;
+  endTime: string;
+  notes: string;
+}
+
+interface SessionData {
+  sessionNumber: number;
+  sessionId: string;
+  blocks: Block[];
+}
 
 interface SessionActionsProps {
   selectedCandidate: string | null;
-  sessionData: any;
+  sessionData: SessionData;
   isAllSessionsCompleted: boolean;
   onMarkComplete: () => void;
 }
@@ -32,27 +43,11 @@ export const SessionActions = ({
     return true;
   };
 
-  const fetchSessionBlocks = async (sessionId: string) => {
-    const { data: blocks, error } = await supabase
-      .from('blocks')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('block_index');
-
-    if (error) {
-      console.error('Error fetching blocks:', error);
-      return [];
-    }
-
-    return blocks || [];
-  };
-
-  const handleShareToWhatsApp = async () => {
+  const handleShareToWhatsApp = () => {
     if (!validateSessionData()) return;
 
     try {
-      const blocks = await fetchSessionBlocks(sessionData.id);
-      const formattedText = formatSessionData(sessionData, blocks);
+      const formattedText = formatSessionData(sessionData);
       const encodedText = encodeURIComponent(formattedText);
       window.open(`https://wa.me/?text=${encodedText}`, '_blank');
       
@@ -70,13 +65,12 @@ export const SessionActions = ({
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = () => {
     if (!validateSessionData()) return;
 
     try {
-      const blocks = await fetchSessionBlocks(sessionData.id);
-      const doc = generateSessionPDF(selectedCandidate, { ...sessionData, blocks });
-      doc.save(`${selectedCandidate}-session-${sessionData.session_number}.pdf`);
+      const doc = generateSessionPDF(selectedCandidate, sessionData);
+      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
       
       toast({
         title: "Success",
@@ -92,33 +86,20 @@ export const SessionActions = ({
     }
   };
 
-  const formatTimeTo12Hour = (time24: string) => {
-    if (!time24) return '';
-    try {
-      const [hours, minutes, seconds] = time24.split(':');
-      const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'pm' : 'am';
-      const hour12 = hour % 12 || 12;
-      return `${String(hour12).padStart(2, '0')}:${minutes}:${seconds || '00'} ${ampm}`;
-    } catch {
-      return '';
-    }
-  };
-
-  const formatSessionData = (session: any, blocks: any[]) => {
-    let formattedText = `Session ${session.session_number || ''}\n\n`;
-    formattedText += `Session ID: ${session.session_id || ''}\n\n`;
+  const formatSessionData = (data: SessionData) => {
+    let formattedText = `Session ${data.sessionNumber}\n\n`;
+    formattedText += `Session ID: ${data.sessionId}\n\n`;
     formattedText += `Blocks:\n\n`;
 
-    blocks.forEach((block, index) => {
-      formattedText += `Block ${block.block_index}\n`;
-      if (block.start_time) {
-        formattedText += `Start Time: ${formatTimeTo12Hour(block.start_time)}\n`;
+    data.blocks.forEach((block, index) => {
+      formattedText += `Block ${index}\n`;
+      if (block.startTime) {
+        formattedText += `Start Time: ${block.startTime}\n`;
       }
-      if (block.end_time) {
-        formattedText += `End Time: ${formatTimeTo12Hour(block.end_time)}\n`;
+      if (block.endTime) {
+        formattedText += `End Time: ${block.endTime}\n`;
       }
-      if (block.notes) {
+      if (block.notes && block.notes.trim() !== '') {
         formattedText += `Notes: ${block.notes}\n`;
       }
       formattedText += '\n';
