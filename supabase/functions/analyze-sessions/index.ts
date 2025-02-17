@@ -14,7 +14,6 @@ serve(async (req) => {
   }
 
   try {
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabase = createClient(supabaseUrl!, supabaseKey!);
@@ -41,52 +40,37 @@ serve(async (req) => {
     // Analyze each candidate's data
     for (const [candidate, sessions] of Object.entries(candidateData)) {
       const sessionAnalysis = sessions.map((session: any) => {
-        const electrodeNotes = session.blocks
-          .filter((block: any) => block.notes?.includes('electrode'))
+        const completedBlocks = session.blocks.filter((block: any) => 
+          block.start_time && block.end_time
+        ).length;
+
+        const notes = session.blocks
           .map((block: any) => block.notes)
+          .filter(Boolean)
           .join(' ');
 
         return {
           sessionNumber: session.session_number,
-          completedBlocks: session.blocks.filter((b: any) => b.start_time && b.end_time).length,
-          electrodeNotes,
+          completedBlocks,
+          totalBlocks: session.blocks.length,
+          notes
         };
       });
 
-      const prompt = `Analyze this clinical session data for candidate ${candidate}:
-      ${JSON.stringify(sessionAnalysis, null, 2)}
+      const totalCompletedBlocks = sessionAnalysis.reduce((sum: number, s: any) => sum + s.completedBlocks, 0);
+      const totalBlocks = sessionAnalysis.reduce((sum: number, s: any) => sum + s.totalBlocks, 0);
+      const completionRate = Math.round((totalCompletedBlocks / totalBlocks) * 100);
       
-      Provide a concise analysis focusing on:
-      1. Overall progress (completed sessions vs target)
-      2. Session efficiency (completed blocks)
-      3. Any electrode-related issues
-      4. Areas of improvement
-      
-      Format the response in a clear, structured way.`;
+      const analysis = `Candidate completed ${sessions.length} sessions with a ${completionRate}% completion rate. ` +
+        `Average blocks completed per session: ${(totalCompletedBlocks / sessions.length).toFixed(1)}. ` +
+        `Current status: ${sessions.length >= 12 ? 'Qualified' : 'In Progress'}.`;
 
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: prompt }]
-            }]
-          })
-        }
-      );
-
-      const analysis = await geminiResponse.json();
-      
       // Store analysis in Supabase
       const { error: insertError } = await supabase
         .from('session_analysis')
         .insert({
           candidate_name: candidate,
-          analysis: analysis.candidates?.[0]?.content?.parts?.[0]?.text || 'Analysis unavailable',
+          analysis: analysis,
           created_at: new Date().toISOString(),
         });
 
