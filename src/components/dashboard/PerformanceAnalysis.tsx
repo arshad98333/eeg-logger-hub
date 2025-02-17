@@ -8,6 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface AnalysisProps {
   data: Array<{
@@ -20,57 +22,116 @@ interface AnalysisProps {
 
 export const PerformanceAnalysis = ({ data }: AnalysisProps) => {
   const [analysis, setAnalysis] = useState<any[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate AI analysis for now
-    // In the next implementation, we'll integrate with Gemini AI
-    const newAnalysis = data.map(candidate => ({
-      name: candidate.name,
-      sessionCount: candidate.sessionCount,
-      completionRate: ((candidate.completedBlocks / candidate.totalBlocks) * 100).toFixed(1),
-      timestamp: new Date().toISOString(),
-      status: candidate.sessionCount >= 12 ? "Qualified" : "In Progress"
-    }));
-    
-    setAnalysis(newAnalysis);
-  }, [data]);
+    // Initial fetch
+    fetchAnalysis();
+
+    // Set up periodic analysis (random interval between 40min and 1h20m)
+    const scheduleNextAnalysis = () => {
+      const minInterval = 40 * 60 * 1000; // 40 minutes
+      const maxInterval = 80 * 60 * 1000; // 1h20m
+      const randomInterval = Math.random() * (maxInterval - minInterval) + minInterval;
+      
+      return setTimeout(async () => {
+        await triggerAnalysis();
+        scheduleNextAnalysis();
+      }, randomInterval);
+    };
+
+    const timer = scheduleNextAnalysis();
+    return () => clearTimeout(timer);
+  }, []);
+
+  const fetchAnalysis = async () => {
+    try {
+      const { data: analysisData, error } = await supabase
+        .from('session_analysis')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setAnalysis(analysisData);
+    } catch (error) {
+      console.error('Error fetching analysis:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch analysis data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const triggerAnalysis = async () => {
+    try {
+      const response = await supabase.functions.invoke('analyze-sessions');
+      if (!response.error) {
+        await fetchAnalysis();
+        toast({
+          title: "Analysis Updated",
+          description: "Session analysis has been refreshed",
+        });
+      }
+    } catch (error) {
+      console.error('Error triggering analysis:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update analysis",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Candidate</TableHead>
-            <TableHead>Sessions Completed</TableHead>
-            <TableHead>Completion Rate</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Last Updated</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {analysis.map((item) => (
-            <TableRow key={item.name}>
-              <TableCell className="font-medium">{item.name}</TableCell>
-              <TableCell>{item.sessionCount}/14</TableCell>
-              <TableCell>{item.completionRate}%</TableCell>
-              <TableCell>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs ${
-                    item.status === "Qualified"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-yellow-100 text-yellow-800"
-                  }`}
-                >
-                  {item.status}
-                </span>
-              </TableCell>
-              <TableCell>
-                {new Date(item.timestamp).toLocaleString()}
-              </TableCell>
+    <div className="space-y-6">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Candidate</TableHead>
+              <TableHead>Sessions Completed</TableHead>
+              <TableHead>Completion Rate</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last Analysis</TableHead>
+              <TableHead>AI Insights</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {analysis.map((item) => (
+              <TableRow key={`${item.candidate_name}-${item.created_at}`}>
+                <TableCell className="font-medium">{item.candidate_name}</TableCell>
+                <TableCell>
+                  {data.find(d => d.name === item.candidate_name)?.sessionCount || 0}/14
+                </TableCell>
+                <TableCell>
+                  {data.find(d => d.name === item.candidate_name)?.completedBlocks || 0}%
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      (data.find(d => d.name === item.candidate_name)?.sessionCount || 0) >= 12
+                        ? "bg-green-100 text-green-800"
+                        : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {(data.find(d => d.name === item.candidate_name)?.sessionCount || 0) >= 12 ? "Qualified" : "In Progress"}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  {new Date(item.created_at).toLocaleString()}
+                </TableCell>
+                <TableCell className="max-w-md">
+                  <div className="text-sm text-gray-600 truncate">
+                    {item.analysis}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
