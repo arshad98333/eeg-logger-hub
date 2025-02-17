@@ -1,7 +1,10 @@
 
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Circle, CheckCircle2, XCircle } from "lucide-react";
 
 interface TimeBlockProps {
   index: number;
@@ -12,8 +15,34 @@ interface TimeBlockProps {
 }
 
 export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBlockProps) => {
+  const [isRecording, setIsRecording] = useState(false);
+
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+  };
+
   return (
     <div className="space-y-4 p-4 bg-clinical-50 rounded-lg animate-fade-in">
+      <div className="flex justify-between items-start mb-4">
+        <h4 className="text-lg font-medium text-clinical-800">Block {index + 1}</h4>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleRecording}
+          className="relative"
+        >
+          {!isRecording && (
+            <Circle className="h-6 w-6 text-gray-500" />
+          )}
+          {isRecording && (
+            <CheckCircle2 className="h-6 w-6 text-green-500 animate-pulse" />
+          )}
+          {!isRecording && startTime && endTime && (
+            <XCircle className="h-6 w-6 text-red-500 animate-pulse" />
+          )}
+        </Button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor={`start-time-${index}`}>Start Time</Label>
