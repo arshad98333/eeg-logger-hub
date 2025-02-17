@@ -31,7 +31,6 @@ export const useSessionManagement = () => {
 
   const handleAddCandidate = async (data: { name: string; date: string; shift: string }) => {
     try {
-      // First, clear any existing data
       localStorage.clear();
       
       const { error } = await supabase
@@ -66,7 +65,7 @@ export const useSessionManagement = () => {
     if (!selectedCandidate) return;
 
     try {
-      // First delete any existing session and its blocks
+      // Delete existing session and blocks
       const { data: existingSession } = await supabase
         .from('sessions')
         .select('id')
@@ -75,13 +74,11 @@ export const useSessionManagement = () => {
         .maybeSingle();
 
       if (existingSession) {
-        // Delete existing blocks
         await supabase
           .from('blocks')
           .delete()
           .eq('session_id', existingSession.id);
 
-        // Delete existing session
         await supabase
           .from('sessions')
           .delete()
@@ -102,35 +99,33 @@ export const useSessionManagement = () => {
 
       if (sessionError) throw sessionError;
 
-      // Insert blocks exactly as they are
-      for (const [index, block] of sessionData.blocks.entries()) {
-        if (block.startTime || block.endTime || block.notes) {
-          const { error: blockError } = await supabase
-            .from('blocks')
-            .insert({
-              session_id: newSession.id,
-              block_index: index,
-              start_time: block.startTime,
-              end_time: block.endTime,
-              notes: block.notes,
-              is_recording: false
-            });
+      // Insert blocks with exact frontend values
+      const blocksToInsert = sessionData.blocks
+        .map((block: any, index: number) => ({
+          session_id: newSession.id,
+          block_index: index,
+          start_time: block.startTime || null,
+          end_time: block.endTime || null,
+          notes: block.notes || '',
+          is_recording: false
+        }))
+        .filter((block: any) => block.start_time || block.end_time || block.notes);
 
-          if (blockError) throw blockError;
-        }
+      if (blocksToInsert.length > 0) {
+        const { error: blockError } = await supabase
+          .from('blocks')
+          .insert(blocksToInsert);
+
+        if (blockError) throw blockError;
       }
+
+      toast({
+        title: "Session Saved",
+        description: `Session ${sessionData.sessionNumber} saved successfully.`,
+      });
 
       if (sessionData.sessionNumber === 14) {
         setIsAllSessionsCompleted(true);
-        toast({
-          title: "Final Session Saved",
-          description: "Session 14 complete. You can now mark all sessions as complete.",
-        });
-      } else {
-        toast({
-          title: "Session Saved",
-          description: `Session ${sessionData.sessionNumber} saved successfully.`,
-        });
       }
     } catch (error) {
       console.error('Error saving session:', error);
@@ -146,7 +141,6 @@ export const useSessionManagement = () => {
     if (!selectedCandidate || !isAllSessionsCompleted) return;
 
     try {
-      // Mark all sessions as ended
       const { error } = await supabase
         .from('sessions')
         .update({ ended_at: new Date().toISOString() })
@@ -154,10 +148,7 @@ export const useSessionManagement = () => {
 
       if (error) throw error;
 
-      // Clear ALL localStorage data
       localStorage.clear();
-      
-      // Reset all states
       setSelectedCandidate(null);
       setIsAllSessionsCompleted(false);
 
