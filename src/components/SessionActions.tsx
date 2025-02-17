@@ -85,26 +85,63 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: any) => {
-    let formattedText = `*Clinical Session Report*\n\n`;
-    formattedText += `*Session* : ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
-    formattedText += `*Session ID* : ${selectedCandidate}\n`;
-    formattedText += `*Impedance* : H-${data.impedanceH || 'N/A'}/L-${data.impedanceL || 'N/A'}\n\n`;
-    formattedText += `*TIMINGS:*\n\n`;
-
-    data.blocks.forEach((block: any, index: number) => {
-      if (block && block.startTime && block.endTime) {
-        formattedText += `Block ${index}: ${block.startTime} - ${block.endTime}\n`;
-      }
-    });
-
-    formattedText += `\n*NOTES:*\n`;
+    let formattedText = `*CLINICAL SESSION REPORT*\n\n`;
+    
+    // Candidate Information
+    formattedText += `*CANDIDATE INFORMATION*\n`;
+    formattedText += `Name: ${selectedCandidate}\n`;
+    formattedText += `Date: ${new Date().toLocaleDateString()}\n`;
+    formattedText += `Time: ${new Date().toLocaleTimeString()}\n\n`;
+    
+    // Session Information
+    formattedText += `*SESSION INFORMATION*\n`;
+    formattedText += `Session Number: ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
+    formattedText += `Session ID: ${selectedCandidate}\n\n`;
+    
+    // Impedance Values
+    formattedText += `*IMPEDANCE VALUES*\n`;
+    formattedText += `High (H): ${data.impedanceH || 'N/A'}\n`;
+    formattedText += `Low (L): ${data.impedanceL || 'N/A'}\n\n`;
+    
+    // Block Information
+    formattedText += `*BLOCK DETAILS*\n\n`;
+    
     data.blocks.forEach((block: any, index: number) => {
       if (block) {
-        formattedText += `Block ${index}: ${block.notes || 'NO NOTES'}\n`;
+        formattedText += `*BLOCK ${index}*\n`;
+        formattedText += `Start Time: ${block.startTime || 'Not recorded'}\n`;
+        formattedText += `End Time: ${block.endTime || 'Not recorded'}\n`;
+        formattedText += `Duration: ${block.startTime && block.endTime ? 
+          calculateDuration(block.startTime, block.endTime) : 'N/A'}\n`;
+        formattedText += `Notes: ${block.notes || 'No notes recorded'}\n\n`;
       }
     });
-
+    
+    // Session Status
+    formattedText += `*SESSION STATUS*\n`;
+    formattedText += `Completed: ${isAllSessionsCompleted ? 'Yes' : 'No'}\n\n`;
+    
     return formattedText;
+  };
+
+  const calculateDuration = (startTime: string, endTime: string) => {
+    try {
+      const [startHours, startMinutes] = startTime.split(':').map(Number);
+      const [endHours, endMinutes] = endTime.split(':').map(Number);
+      
+      let durationMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+      
+      if (durationMinutes < 0) {
+        durationMinutes += 24 * 60; // Add 24 hours if end time is on next day
+      }
+      
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      
+      return `${hours}h ${minutes}m`;
+    } catch {
+      return 'Invalid duration';
+    }
   };
 
   return (
