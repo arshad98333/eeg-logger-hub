@@ -58,13 +58,20 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from('sessions')
-        .select('candidate_name, session_number, current_block, progress_percentage')
-        .order('progress_percentage', { ascending: false });
+        .select('candidate_name, session_number, current_block, progress_percentage');
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      // If no data is found, set empty array
+      if (!data || data.length === 0) {
+        setAggregatedSessions([]);
+        return;
+      }
 
       // Aggregate progress for each candidate
-      const aggregated = (data || []).reduce<{ [key: string]: AggregatedProgress }>((acc, session) => {
+      const aggregated = data.reduce<{ [key: string]: AggregatedProgress }>((acc, session) => {
         if (!acc[session.candidate_name]) {
           acc[session.candidate_name] = {
             candidate_name: session.candidate_name,
@@ -114,41 +121,47 @@ const Dashboard = () => {
       <div className="min-h-screen bg-clinical-100 py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-2xl font-bold mb-8">Session Progress Dashboard</h1>
-          <div className="grid gap-4">
-            {aggregatedSessions.map((session) => (
-              <Card key={session.candidate_name} className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold">{session.candidate_name}</h2>
-                    <Award 
-                      className={`w-6 h-6 ${getMedalColor(session.position || 0)}`}
-                      fill="currentColor"
-                    />
-                  </div>
-                  <div className="text-sm font-medium text-clinical-600">
-                    Session {session.current_session} - Block {session.current_block}
-                  </div>
-                </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <Progress 
-                        value={session.total_progress} 
-                        className="h-2 cursor-pointer" 
+          {aggregatedSessions.length === 0 ? (
+            <Card className="p-6 text-center">
+              <p className="text-gray-600">No sessions found. Start a new session to see progress here.</p>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {aggregatedSessions.map((session) => (
+                <Card key={session.candidate_name} className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-semibold">{session.candidate_name}</h2>
+                      <Award 
+                        className={`w-6 h-6 ${getMedalColor(session.position || 0)}`}
+                        fill="currentColor"
                       />
                     </div>
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-white p-3 rounded-lg shadow-lg">
-                    <div className="font-medium">
-                      <span className="text-2xl text-clinical-600">
-                        Session {session.current_session} - Block {session.current_block}
-                      </span>
+                    <div className="text-sm font-medium text-clinical-600">
+                      Session {session.current_session} - Block {session.current_block}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              </Card>
-            ))}
-          </div>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="relative">
+                        <Progress 
+                          value={session.total_progress} 
+                          className="h-2 cursor-pointer" 
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-white p-3 rounded-lg shadow-lg">
+                      <div className="font-medium">
+                        <span className="text-2xl text-clinical-600">
+                          Session {session.current_session} - Block {session.current_block}
+                        </span>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </TooltipProvider>
