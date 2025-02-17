@@ -16,6 +16,7 @@ interface SessionLoggingProps {
 
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
   const [currentSession, setCurrentSession] = useState(initialSession);
+  const [sessionId, setSessionId] = useState("");
   const [impedanceH, setImpedanceH] = useState("");
   const [impedanceL, setImpedanceL] = useState("");
   const [blocks, setBlocks] = useState(
@@ -40,6 +41,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     if (direction === 'next' && currentSession < 14) {
       setCurrentSession(prev => prev + 1);
       // Reset form for new session
+      setSessionId("");
       setImpedanceH("");
       setImpedanceL("");
       setBlocks(Array(7).fill({ startTime: "", endTime: "", notes: "" }));
@@ -52,7 +54,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     e.preventDefault();
     
     const sessionData = {
-      session_id: `${candidateName.substring(0, 2).toUpperCase()}${String(currentSession).padStart(4, "0")}`,
+      session_id: sessionId,
       impedance_h: impedanceH,
       impedance_l: impedanceL,
       blocks,
@@ -66,8 +68,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold">
-            Session {currentSession} - ID: {candidateName.substring(0, 2).toUpperCase()}
-            {String(currentSession).padStart(4, "0")}
+            Session {currentSession}
           </h3>
           <div className="flex items-center space-x-4">
             <Button 
@@ -94,28 +95,43 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="impedanceH">Impedance H</Label>
+            <Label htmlFor="sessionId">Session ID</Label>
             <Input
-              id="impedanceH"
-              placeholder="H-value"
-              value={impedanceH}
-              onChange={(e) => setImpedanceH(e.target.value)}
+              id="sessionId"
+              placeholder="Enter session ID (e.g., AR0007)"
+              value={sessionId}
+              onChange={(e) => setSessionId(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="impedanceL">Impedance L</Label>
-            <Input
-              id="impedanceL"
-              placeholder="L-value"
-              value={impedanceL}
-              onChange={(e) => setImpedanceL(e.target.value)}
-            />
+
+          <div className="space-y-4">
+            <h4 className="text-lg font-medium text-clinical-800">Impedance Values</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="impedanceH">High</Label>
+                <Input
+                  id="impedanceH"
+                  placeholder="H-value"
+                  value={impedanceH}
+                  onChange={(e) => setImpedanceH(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="impedanceL">Low</Label>
+                <Input
+                  id="impedanceL"
+                  placeholder="L-value"
+                  value={impedanceL}
+                  onChange={(e) => setImpedanceL(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 mt-6">
           {blocks.map((block, index) => (
             <div key={index} className="border rounded-lg p-4 bg-clinical-50">
               <h4 className="text-lg font-medium mb-4 text-clinical-800">Block {index}</h4>
