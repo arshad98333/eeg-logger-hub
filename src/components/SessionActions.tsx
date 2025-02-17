@@ -88,8 +88,8 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: any) => {
-    let formattedText = `Session ${data.session_number || ''}\n\n`;
-    formattedText += `Session ID: ${data.session_id || ''}\n`;
+    let formattedText = `Session ${data.sessionNumber || 1}\n\n`;
+    formattedText += `Session ID: ${data.sessionId || ''}\n\n`;
     formattedText += `Impedance Values:\n`;
     formattedText += `High: ${data.impedanceH || ''}\n`;
     formattedText += `Low: ${data.impedanceL || ''}\n\n`;
@@ -97,19 +97,17 @@ export const SessionActions = ({
 
     if (data.blocks && Array.isArray(data.blocks)) {
       data.blocks.forEach((block: any, index: number) => {
-        if (block) {
-          formattedText += `Block ${index}\n`;
-          if (block.start_time) {
-            formattedText += `Start Time: ${formatTimeTo12Hour(block.start_time)}\n`;
-          }
-          if (block.end_time) {
-            formattedText += `End Time: ${formatTimeTo12Hour(block.end_time)}\n`;
-          }
-          if (block.notes) {
-            formattedText += `Notes: ${block.notes}\n`;
-          }
-          formattedText += '\n';
+        formattedText += `Block ${index}\n`;
+        if (block.startTime) {
+          formattedText += `Start Time: ${block.startTime}\n`;
         }
+        if (block.endTime) {
+          formattedText += `End Time: ${block.endTime}\n`;
+        }
+        if (block.notes && block.notes !== '') {
+          formattedText += `Notes: ${block.notes}\n`;
+        }
+        formattedText += '\n';
       });
     }
 
