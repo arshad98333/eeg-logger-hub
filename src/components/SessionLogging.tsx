@@ -15,27 +15,36 @@ interface SessionLoggingProps {
   onSave: (sessionData: any) => void;
 }
 
+interface SessionData {
+  id: string;
+  candidate_name: string;
+  session_number: number;
+  user_id: string;
+  impedance_h?: string;
+  impedance_l?: string;
+  blocks: Array<{
+    id?: string;
+    startTime: string;
+    endTime: string;
+    notes: string;
+    isRecording: boolean;
+  }>;
+}
+
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
   const [currentSession, setCurrentSession] = useState(initialSession);
-  const [sessionId, setSessionId] = useState("");
-  const [impedanceH, setImpedanceH] = useState("");
-  const [impedanceL, setImpedanceL] = useState("");
-  const [blocks, setBlocks] = useState(
-    Array(7).fill({
-      startTime: "",
-      endTime: "",
-      notes: "",
-    })
-  );
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const { toast } = useToast();
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // Load session data when component mounts or session changes
   useEffect(() => {
-    createOrLoadSession();
+    loadSessionData();
   }, [candidateName, currentSession]);
 
-  const createOrLoadSession = async () => {
+  const loadSessionData = async () => {
     try {
+      setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
@@ -57,9 +66,25 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       if (fetchError) throw fetchError;
 
       if (existingSession) {
-        setCurrentSessionId(existingSession.id);
-        setSessionId(existingSession.id);
+        // Load existing session
+        const { data: blocks } = await supabase
+          .from('blocks')
+          .select('*')
+          .eq('session_id', existingSession.id)
+          .order('block_index', { ascending: true });
+
+        setSessionData({
+          ...existingSession,
+          blocks: blocks?.map(block => ({
+            id: block.id,
+            startTime: block.start_time || "",
+            endTime: block.end_time || "",
+            notes: block.notes || "",
+            isRecording: block.is_recording || false,
+          })) || Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+        });
       } else {
+        // Create new session
         const { data: newSession, error: insertError } = await supabase
           .from('sessions')
           .insert({
@@ -72,37 +97,74 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
         if (insertError) throw insertError;
         if (newSession) {
-          setCurrentSessionId(newSession.id);
-          setSessionId(newSession.id);
+          setSessionData({
+            ...newSession,
+            blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+          });
         }
       }
     } catch (error) {
-      console.error('Error creating/loading session:', error);
+      console.error('Error loading session:', error);
       toast({
         title: "Error",
-        description: "Failed to create or load session",
+        description: "Failed to load session data",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes", value: string) => {
-    const newBlocks = [...blocks];
+  const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
+    if (!sessionData) return;
+
+    const newBlocks = [...sessionData.blocks];
     newBlocks[index] = {
       ...newBlocks[index],
       [field]: value,
     };
-    setBlocks(newBlocks);
+
+    setSessionData(prev => prev ? {
+      ...prev,
+      blocks: newBlocks
+    } : null);
+
+    // Debounced save to database
+    saveBlockToDatabase(index, newBlocks[index]);
+  };
+
+  const saveBlockToDatabase = async (index: number, blockData: any) => {
+    if (!sessionData) return;
+
+    try {
+      const data = {
+        session_id: sessionData.id,
+        block_index: index,
+        start_time: blockData.startTime,
+        end_time: blockData.endTime,
+        notes: blockData.notes,
+        is_recording: blockData.isRecording,
+      };
+
+      if (blockData.id) {
+        await supabase
+          .from('blocks')
+          .update(data)
+          .eq('id', blockData.id);
+      } else {
+        await supabase
+          .from('blocks')
+          .insert(data)
+          .select();
+      }
+    } catch (error) {
+      console.error('Error saving block:', error);
+    }
   };
 
   const handleSessionChange = (direction: 'next' | 'prev') => {
     if (direction === 'next' && currentSession < 14) {
       setCurrentSession(prev => prev + 1);
-      // Reset form for new session
-      setSessionId("");
-      setImpedanceH("");
-      setImpedanceL("");
-      setBlocks(Array(7).fill({ startTime: "", endTime: "", notes: "" }));
     } else if (direction === 'prev' && currentSession > 1) {
       setCurrentSession(prev => prev - 1);
     }
@@ -110,16 +172,18 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!sessionData) return;
     
-    const sessionData = {
-      session_id: sessionId,
-      impedance_h: impedanceH,
-      impedance_l: impedanceL,
-      blocks,
-    };
-
     onSave(sessionData);
+    toast({
+      title: "Success",
+      description: "Session saved successfully",
+    });
   };
+
+  if (isLoading) {
+    return <div className="animate-pulse">Loading session data...</div>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 animate-slide-up">
@@ -159,8 +223,8 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
             <Input
               id="sessionId"
               placeholder="Enter session ID (e.g., AR0007)"
-              value={sessionId}
-              onChange={(e) => setSessionId(e.target.value)}
+              value={sessionData?.id || ""}
+              readOnly
             />
           </div>
 
@@ -172,8 +236,11 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                 <Input
                   id="impedanceH"
                   placeholder="H-value"
-                  value={impedanceH}
-                  onChange={(e) => setImpedanceH(e.target.value)}
+                  value={sessionData?.impedance_h || ""}
+                  onChange={(e) => setSessionData(prev => prev ? {
+                    ...prev,
+                    impedance_h: e.target.value
+                  } : null)}
                 />
               </div>
               <div className="space-y-2">
@@ -181,8 +248,11 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                 <Input
                   id="impedanceL"
                   placeholder="L-value"
-                  value={impedanceL}
-                  onChange={(e) => setImpedanceL(e.target.value)}
+                  value={sessionData?.impedance_l || ""}
+                  onChange={(e) => setSessionData(prev => prev ? {
+                    ...prev,
+                    impedance_l: e.target.value
+                  } : null)}
                 />
               </div>
             </div>
@@ -190,14 +260,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         </div>
 
         <div className="space-y-4 mt-6">
-          {blocks.map((block, index) => (
+          {sessionData?.blocks.map((block, index) => (
             <div key={index} className="border rounded-lg p-4 bg-clinical-50">
               <TimeBlock
                 index={index}
                 startTime={block.startTime}
                 endTime={block.endTime}
                 notes={block.notes}
-                sessionId={currentSessionId || ""}
+                sessionId={sessionData.id}
                 onChange={handleBlockChange}
               />
             </div>
