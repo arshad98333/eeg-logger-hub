@@ -58,7 +58,7 @@ export const SessionActions = ({
 
     try {
       const doc = generateSessionPDF(selectedCandidate, sessionData);
-      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+      doc.save(`${selectedCandidate}-session-${sessionData.session_number}.pdf`);
       
       toast({
         title: "Success",
@@ -88,25 +88,28 @@ export const SessionActions = ({
   };
 
   const formatSessionData = (data: any) => {
-    let formattedText = `Session : ${String(data.sessionNumber || '').padStart(2, '0')}\n`;
-    formattedText += `Session ID : ${data.session_id || selectedCandidate}\n`;
-    formattedText += `Impedence : H-${data.impedanceH || 'N/A'}/L-${data.impedanceL || 'N/A'}\n`;
-    formattedText += `TIMINGS:\n\n`;
+    let formattedText = `Session ${data.session_number || ''}\n\n`;
+    formattedText += `Session ID: ${data.session_id || ''}\n`;
+    formattedText += `Impedance Values:\n`;
+    formattedText += `High: ${data.impedanceH || ''}\n`;
+    formattedText += `Low: ${data.impedanceL || ''}\n\n`;
+    formattedText += `Blocks:\n\n`;
 
     if (data.blocks && Array.isArray(data.blocks)) {
-      data.blocks.forEach((block: any) => {
-        if (block && block.start_time && block.end_time) {
-          const start12h = formatTimeTo12Hour(block.start_time);
-          const end12h = formatTimeTo12Hour(block.end_time);
-          formattedText += `${start12h}\t${end12h}\n`;
+      data.blocks.forEach((block: any, index: number) => {
+        if (block) {
+          formattedText += `Block ${index}\n`;
+          if (block.start_time) {
+            formattedText += `Start Time: ${formatTimeTo12Hour(block.start_time)}\n`;
+          }
+          if (block.end_time) {
+            formattedText += `End Time: ${formatTimeTo12Hour(block.end_time)}\n`;
+          }
+          if (block.notes) {
+            formattedText += `Notes: ${block.notes}\n`;
+          }
+          formattedText += '\n';
         }
-      });
-    }
-
-    formattedText += `\nNOTES:\n`;
-    if (data.blocks && Array.isArray(data.blocks)) {
-      data.blocks.forEach((block: any) => {
-        formattedText += `${block && block.notes ? block.notes : 'NO NOTES'}\n`;
       });
     }
 
