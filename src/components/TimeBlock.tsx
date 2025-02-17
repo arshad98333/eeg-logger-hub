@@ -1,7 +1,10 @@
 
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Circle, CheckCircle2, XCircle } from "lucide-react";
 
 interface TimeBlockProps {
   index: number;
@@ -12,24 +15,48 @@ interface TimeBlockProps {
   onChange: (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => void;
 }
 
-const formatTimeTo12Hour = (time24: string) => {
-  if (!time24) return '';
-  try {
-    const [hours, minutes, seconds] = time24.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const hour12 = hour % 12 || 12;
-    return `${String(hour12).padStart(2, '0')}:${minutes}:${seconds || '00'} ${ampm}`;
-  } catch {
-    return '';
-  }
-};
-
 export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBlockProps) => {
+  const [isRecording, setIsRecording] = useState(false);
+
+  const toggleRecording = () => {
+    const newRecordingState = !isRecording;
+    setIsRecording(newRecordingState);
+    
+    if (newRecordingState) {
+      // If starting recording, set current time as start time
+      const now = new Date();
+      const timeString = now.toTimeString().split(' ')[0];
+      onChange(index, "startTime", timeString);
+    } else {
+      // If stopping recording, set current time as end time
+      const now = new Date();
+      const timeString = now.toTimeString().split(' ')[0];
+      onChange(index, "endTime", timeString);
+    }
+    
+    onChange(index, "isRecording", newRecordingState);
+  };
+
   return (
     <div className="space-y-4 p-4 bg-clinical-50 rounded-lg animate-fade-in">
       <div className="flex justify-between items-start mb-4">
         <h4 className="text-lg font-medium text-clinical-800">Block {index}</h4>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleRecording}
+          className="relative"
+        >
+          {!isRecording && !startTime && !endTime && (
+            <Circle className="h-6 w-6 text-gray-500" />
+          )}
+          {isRecording && (
+            <CheckCircle2 className="h-6 w-6 text-green-500 animate-pulse" />
+          )}
+          {!isRecording && (startTime || endTime) && (
+            <XCircle className="h-6 w-6 text-red-500" />
+          )}
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -41,12 +68,8 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
             step="1"
             value={startTime}
             onChange={(e) => onChange(index, "startTime", e.target.value)}
+            readOnly={isRecording}
           />
-          {startTime && (
-            <p className="text-sm text-gray-500 mt-1">
-              {formatTimeTo12Hour(startTime)}
-            </p>
-          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor={`end-time-${index}`}>End Time</Label>
@@ -56,12 +79,8 @@ export const TimeBlock = ({ index, startTime, endTime, notes, onChange }: TimeBl
             step="1"
             value={endTime}
             onChange={(e) => onChange(index, "endTime", e.target.value)}
+            readOnly={isRecording}
           />
-          {endTime && (
-            <p className="text-sm text-gray-500 mt-1">
-              {formatTimeTo12Hour(endTime)}
-            </p>
-          )}
         </div>
       </div>
       <div className="space-y-2">

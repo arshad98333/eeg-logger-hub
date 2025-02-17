@@ -9,8 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-export const STORAGE_KEY = "clinical-session-data";
-export const CURRENT_SESSION_KEY = "current-session-number";
+const STORAGE_KEY = "clinical-session-data";
 
 interface SessionLoggingProps {
   candidateName: string;
@@ -28,7 +27,6 @@ interface Block {
 interface SessionData {
   candidateName: string;
   sessionNumber: number;
-  sessionId: string;
   impedanceH: string;
   impedanceL: string;
   blocks: Block[];
@@ -36,20 +34,47 @@ interface SessionData {
 
 export const SessionLogging = ({ candidateName, sessionNumber: initialSession, onSave }: SessionLoggingProps) => {
   const [currentSession, setCurrentSession] = useState(initialSession);
-  const [sessionData, setSessionData] = useState<SessionData>({
-    candidateName,
-    sessionNumber: currentSession,
-    sessionId: '',
-    impedanceH: '',
-    impedanceL: '',
-    blocks: Array(7).fill({ startTime: '', endTime: '', notes: '', isRecording: false })
+  const [sessionData, setSessionData] = useState<SessionData>(() => {
+    // Initialize from localStorage if available
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[candidateName];
+      if (candidateData && candidateData[initialSession]) {
+        return candidateData[initialSession];
+      }
+    }
+    return {
+      candidateName,
+      sessionNumber: initialSession,
+      impedanceH: "",
+      impedanceL: "",
+      blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+    };
   });
   
   const { toast } = useToast();
 
+  // Load session data when switching sessions
   useEffect(() => {
-    localStorage.setItem(CURRENT_SESSION_KEY, currentSession.toString());
-  }, [currentSession]);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const allSessions = JSON.parse(stored);
+      const candidateData = allSessions[candidateName];
+      if (candidateData && candidateData[currentSession]) {
+        setSessionData(candidateData[currentSession]);
+      } else {
+        // Initialize new session
+        setSessionData({
+          candidateName,
+          sessionNumber: currentSession,
+          impedanceH: "",
+          impedanceL: "",
+          blocks: Array(7).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+        });
+      }
+    }
+  }, [currentSession, candidateName]);
 
   const handleBlockChange = (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
     const newBlocks = [...sessionData.blocks];
@@ -58,82 +83,34 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       [field]: value,
     };
 
-    setSessionData(prevData => ({
-      ...prevData,
+    const newSessionData = {
+      ...sessionData,
       blocks: newBlocks
-    }));
+    };
+    
+    setSessionData(newSessionData);
+
+    // Save to localStorage on every change
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const allSessions = stored ? JSON.parse(stored) : {};
+    allSessions[candidateName] = {
+      ...allSessions[candidateName],
+      [currentSession]: newSessionData
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
   };
 
   const handleSessionChange = (direction: 'next' | 'prev') => {
     if (direction === 'next' && currentSession < 14) {
       setCurrentSession(prev => prev + 1);
-      setSessionData({
-        candidateName,
-        sessionNumber: currentSession + 1,
-        sessionId: '',
-        impedanceH: '',
-        impedanceL: '',
-        blocks: Array(7).fill({ startTime: '', endTime: '', notes: '', isRecording: false })
-      });
     } else if (direction === 'prev' && currentSession > 1) {
       setCurrentSession(prev => prev - 1);
-      setSessionData({
-        candidateName,
-        sessionNumber: currentSession - 1,
-        sessionId: '',
-        impedanceH: '',
-        impedanceL: '',
-        blocks: Array(7).fill({ startTime: '', endTime: '', notes: '', isRecording: false })
-      });
     }
   };
 
-  const validateTimeValue = (time: string) => {
-    if (!time) return null;
-    // Check if the time string matches the format HH:mm:ss
-    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
-    return timeRegex.test(time) ? time : null;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!sessionData.sessionId) {
-      toast({
-        title: "Error",
-        description: "Please enter a Session ID",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      // Filter out blocks with empty time values
-      const validBlocks = sessionData.blocks.map((block, index) => ({
-        startTime: validateTimeValue(block.startTime),
-        endTime: validateTimeValue(block.endTime),
-        notes: block.notes || '',
-        isRecording: false,
-        block_index: index
-      }));
-
-      onSave({
-        ...sessionData,
-        blocks: validBlocks.filter(block => block.startTime !== null || block.endTime !== null || block.notes)
-      });
-
-      toast({
-        title: "Success",
-        description: "Session data saved successfully",
-      });
-    } catch (error) {
-      console.error('Error saving session:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save session data",
-        variant: "destructive"
-      });
-    }
+    onSave(sessionData);
   };
 
   return (
@@ -171,20 +148,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         </div>
 
         <div className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="sessionId">Session ID</Label>
-            <Input
-              id="sessionId"
-              placeholder="Enter Session ID"
-              value={sessionData.sessionId}
-              onChange={(e) => {
-                const newData = { ...sessionData, sessionId: e.target.value };
-                setSessionData(newData);
-              }}
-              className="max-w-xs"
-            />
-          </div>
-
           <div className="space-y-4">
             <h4 className="text-lg font-medium text-clinical-800">Impedance Values</h4>
             <div className="grid grid-cols-2 gap-4">
@@ -197,6 +160,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceH: e.target.value };
                     setSessionData(newData);
+                    // Save to localStorage
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    const allSessions = stored ? JSON.parse(stored) : {};
+                    allSessions[candidateName] = {
+                      ...allSessions[candidateName],
+                      [currentSession]: newData
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
                   }}
                 />
               </div>
@@ -209,6 +180,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
                   onChange={(e) => {
                     const newData = { ...sessionData, impedanceL: e.target.value };
                     setSessionData(newData);
+                    // Save to localStorage
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    const allSessions = stored ? JSON.parse(stored) : {};
+                    allSessions[candidateName] = {
+                      ...allSessions[candidateName],
+                      [currentSession]: newData
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
                   }}
                 />
               </div>

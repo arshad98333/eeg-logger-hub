@@ -76,34 +76,25 @@ export type Database = {
           candidate_name: string
           ended_at: string | null
           id: string
-          impedance_h: string | null
-          impedance_l: string | null
-          session_id: string | null
           session_number: number | null
           started_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           candidate_name: string
           ended_at?: string | null
           id?: string
-          impedance_h?: string | null
-          impedance_l?: string | null
-          session_id?: string | null
           session_number?: number | null
           started_at?: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           candidate_name?: string
           ended_at?: string | null
           id?: string
-          impedance_h?: string | null
-          impedance_l?: string | null
-          session_id?: string | null
           session_number?: number | null
           started_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
