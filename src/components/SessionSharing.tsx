@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { generateSessionPDF } from "@/utils/pdfGenerator";
 import { formatSessionData } from "@/utils/sessionFormatter";
 import { CheckCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface SessionSharingProps {
   selectedCandidate: string | null;
@@ -17,17 +18,58 @@ export const SessionSharing = ({
   isAllSessionsCompleted,
   onMarkComplete
 }: SessionSharingProps) => {
+  const { toast } = useToast();
+
   const handleShareToWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const formattedText = formatSessionData(sessionData, selectedCandidate);
-    const encodedText = encodeURIComponent(formattedText);
-    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    if (!selectedCandidate || !sessionData) {
+      toast({
+        title: "Error",
+        description: "No session data available to share",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const formattedText = formatSessionData(sessionData, selectedCandidate);
+      const encodedText = encodeURIComponent(formattedText);
+      window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    } catch (error) {
+      console.error('Error sharing to WhatsApp:', error);
+      toast({
+        title: "Error",
+        description: "Failed to share session data",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDownloadPDF = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+    if (!selectedCandidate || !sessionData) {
+      toast({
+        title: "Error",
+        description: "No session data available to download",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const doc = generateSessionPDF(selectedCandidate, sessionData);
+      doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "PDF downloaded successfully",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

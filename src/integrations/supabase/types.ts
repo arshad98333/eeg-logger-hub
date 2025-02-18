@@ -73,6 +73,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          block_data: Json | null
           candidate_name: string
           current_block: number | null
           ended_at: string | null
@@ -87,6 +88,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          block_data?: Json | null
           candidate_name: string
           current_block?: number | null
           ended_at?: string | null
@@ -101,6 +103,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          block_data?: Json | null
           candidate_name?: string
           current_block?: number | null
           ended_at?: string | null

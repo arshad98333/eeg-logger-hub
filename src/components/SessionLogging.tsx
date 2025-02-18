@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,85 +36,37 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadSessionState = async () => {
+    const loadData = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: sessionRecord, error } = await supabase
           .from('sessions')
           .select('*')
           .eq('candidate_name', candidateName)
           .eq('session_number', currentSession)
-          .maybeSingle();
+          .single();
 
-        if (error) {
-          console.error('Error loading session state:', error);
-          return;
-        }
+        if (error) throw error;
 
-        // Load stored block data from localStorage for this specific session
-        const stored = localStorage.getItem(STORAGE_KEY);
-        let storedBlocks: Block[] = [];
-        
-        if (stored) {
-          const allSessions = JSON.parse(stored);
-          const candidateData = allSessions[candidateName];
-          if (candidateData && candidateData[currentSession]) {
-            storedBlocks = candidateData[currentSession].blocks;
-          }
-        }
+        if (sessionRecord) {
+          const storedData = localStorage.getItem(STORAGE_KEY);
+          const localBlocks = storedData ? 
+            JSON.parse(storedData)[candidateName]?.[currentSession]?.blocks || [] 
+            : [];
 
-        if (data) {
           setSessionData(prev => ({
             ...prev,
-            sessionId: data.session_id || String(currentSession),
-            impedanceH: data.impedance_h || "",
-            impedanceL: data.impedance_l || "",
-            blocks: storedBlocks,
+            sessionId: sessionRecord.session_id || String(currentSession),
+            impedanceH: sessionRecord.impedance_h || "",
+            impedanceL: sessionRecord.impedance_l || "",
+            blocks: localBlocks
           }));
-        } else {
-          const initialSessionData = {
-            candidate_name: candidateName,
-            session_number: currentSession,
-            session_id: currentSession === 1 ? "1" : "0",
-            current_block: 1,
-            started_at: new Date().toISOString(),
-            impedance_h: currentSession === 1 ? sessionData.impedanceH : "",
-            impedance_l: currentSession === 1 ? sessionData.impedanceL : ""
-          };
-
-          const { error: insertError } = await supabase
-            .from('sessions')
-            .insert(initialSessionData);
-
-          if (insertError) {
-            console.error('Error creating new session:', insertError);
-            toast({
-              title: "Error",
-              description: "Failed to create new session",
-              variant: "destructive"
-            });
-          } else {
-            if (currentSession !== 1) {
-              setSessionData(prev => ({
-                ...prev,
-                sessionId: "0",
-                impedanceH: "",
-                impedanceL: "",
-                blocks: []
-              }));
-            }
-          }
         }
       } catch (error) {
-        console.error('Error loading session state:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load session state",
-          variant: "destructive"
-        });
+        console.error('Error loading session data:', error);
       }
     };
 
-    loadSessionState();
+    loadData();
   }, [candidateName, currentSession]);
 
   const handleAddBlock = () => {
@@ -129,22 +80,36 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
 
     const newBlock = { startTime: "", endTime: "", notes: "", isRecording: false };
-    setSessionData(prev => ({
-      ...prev,
-      blocks: [...prev.blocks, newBlock]
-    }));
-
-    // Update localStorage
+    
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
       allSessions[candidateName] = {};
     }
+    
+    const updatedBlocks = [...sessionData.blocks, newBlock];
     allSessions[candidateName][currentSession] = {
       ...sessionData,
-      blocks: [...sessionData.blocks, newBlock]
+      blocks: updatedBlocks
     };
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+    
+    setSessionData(prev => ({
+      ...prev,
+      blocks: updatedBlocks
+    }));
+
+    supabase
+      .from('sessions')
+      .upsert({
+        candidate_name: candidateName,
+        session_number: currentSession,
+        block_data: updatedBlocks
+      })
+      .then(({ error }) => {
+        if (error) console.error('Error updating Supabase:', error);
+      });
   };
 
   const handleBlockChange = async (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
@@ -161,37 +126,34 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     
     setSessionData(newSessionData);
 
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const allSessions = stored ? JSON.parse(stored) : {};
+    if (!allSessions[candidateName]) {
+      allSessions[candidateName] = {};
+    }
+    allSessions[candidateName][currentSession] = newSessionData;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+
     try {
       const { error } = await supabase
         .from('sessions')
-        .update({
-          current_block: index + 1,
+        .upsert({
+          candidate_name: candidateName,
           session_number: currentSession,
-          session_id: sessionData.sessionId.toString()
-        })
-        .eq('candidate_name', candidateName)
-        .eq('session_number', currentSession);
+          session_id: sessionData.sessionId,
+          block_data: newBlocks,
+          current_block: index + 1
+        });
 
       if (error) throw error;
     } catch (error) {
       console.error('Error updating session:', error);
       toast({
         title: "Error",
-        description: "Failed to update session",
+        description: "Failed to update session in database",
         variant: "destructive"
       });
     }
-
-    // Update localStorage with session-specific block data
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const allSessions = stored ? JSON.parse(stored) : {};
-    
-    if (!allSessions[candidateName]) {
-      allSessions[candidateName] = {};
-    }
-    
-    allSessions[candidateName][currentSession] = newSessionData;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
   };
 
   const handleCompleteShift = async () => {
