@@ -54,7 +54,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         if (fetchError) throw fetchError;
 
         if (existingSession) {
-          // Load data from Supabase and update both state and localStorage
           const blocks = existingSession.block_data ? existingSession.block_data as Block[] : [];
           
           const newSessionData = {
@@ -67,7 +66,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
           setSessionData(newSessionData);
 
-          // Update localStorage with session-specific data
           const stored = localStorage.getItem(STORAGE_KEY);
           const allSessions = stored ? JSON.parse(stored) : {};
           if (!allSessions[candidateName]) {
@@ -76,7 +74,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           allSessions[candidateName][currentSession] = newSessionData;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
         } else {
-          // Initialize new session with empty blocks
           setSessionData(prev => ({
             ...prev,
             sessionNumber: currentSession,
@@ -119,7 +116,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
     const newBlock: Block = { startTime: "", endTime: "", notes: "", isRecording: false };
     
-    // Update localStorage with session-specific blocks
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
@@ -139,24 +135,45 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       blocks: updatedBlocks
     }));
 
-    // Convert blocks to JSON compatible format for Supabase
     const blockDataForSupabase = updatedBlocks.map(block => ({
       startTime: block.startTime,
       endTime: block.endTime,
       notes: block.notes,
       isRecording: block.isRecording
-    })) as Json;
+    }));
 
-    // Update Supabase with session-specific blocks
     supabase
       .from('sessions')
-      .upsert({
-        candidate_name: candidateName,
-        session_number: currentSession,
-        block_data: blockDataForSupabase
+      .select('id')
+      .eq('candidate_name', candidateName)
+      .eq('session_number', currentSession)
+      .maybeSingle()
+      .then(({ data: existingSession, error: checkError }) => {
+        if (checkError) throw checkError;
+
+        if (existingSession) {
+          return supabase
+            .from('sessions')
+            .update({
+              block_data: blockDataForSupabase
+            })
+            .eq('candidate_name', candidateName)
+            .eq('session_number', currentSession);
+        } else {
+          return supabase
+            .from('sessions')
+            .insert({
+              candidate_name: candidateName,
+              session_number: currentSession,
+              block_data: blockDataForSupabase
+            });
+        }
       })
       .then(({ error }) => {
         if (error) console.error('Error updating Supabase:', error);
+      })
+      .catch(error => {
+        console.error('Error handling session update:', error);
       });
   };
 
@@ -167,7 +184,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       [field]: value,
     };
 
-    // Update local state and localStorage with session-specific blocks
     const newSessionData = {
       ...sessionData,
       blocks: newBlocks
@@ -175,7 +191,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     
     setSessionData(newSessionData);
 
-    // Update localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
@@ -184,32 +199,45 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     allSessions[candidateName][currentSession] = newSessionData;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
 
-    // Convert blocks to JSON compatible format for Supabase
     const blockDataForSupabase = newBlocks.map(block => ({
       startTime: block.startTime,
       endTime: block.endTime,
       notes: block.notes,
       isRecording: block.isRecording
-    })) as Json;
+    }));
 
-    // Update Supabase with session-specific blocks
     try {
-      const { error } = await supabase
+      const { data: existingSession } = await supabase
         .from('sessions')
-        .upsert(
-          {
+        .select('id')
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession)
+        .maybeSingle();
+
+      if (existingSession) {
+        const { error: updateError } = await supabase
+          .from('sessions')
+          .update({
+            block_data: blockDataForSupabase,
+            current_block: index + 1
+          })
+          .eq('candidate_name', candidateName)
+          .eq('session_number', currentSession);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('sessions')
+          .insert({
             candidate_name: candidateName,
             session_number: currentSession,
             session_id: sessionData.sessionId,
             block_data: blockDataForSupabase,
             current_block: index + 1
-          },
-          {
-            onConflict: 'candidate_name,session_number'
-          }
-        );
+          });
 
-      if (error) throw error;
+        if (insertError) throw insertError;
+      }
     } catch (error) {
       console.error('Error updating session:', error);
       toast({
@@ -273,7 +301,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Save to localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
