@@ -293,6 +293,15 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         if (insertError) throw insertError;
       }
 
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const allSessions = JSON.parse(stored);
+        delete allSessions[candidateName];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+      }
+
+      localStorage.removeItem("selectedCandidate");
+
       setCurrentSession(1);
       setSessionData({
         candidateName,
@@ -305,8 +314,10 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
       toast({
         title: "Success",
-        description: "Shift completed. Starting new session.",
+        description: "Shift completed and data cleared. Starting new session.",
       });
+
+      window.location.reload();
     } catch (error) {
       console.error('Error completing shift:', error);
       toast({
