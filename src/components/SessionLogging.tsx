@@ -40,16 +40,42 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
   useEffect(() => {
     const loadData = async () => {
       try {
+        // First try to get existing session
         const { data: sessionRecord, error } = await supabase
           .from('sessions')
           .select('*')
           .eq('candidate_name', candidateName)
           .eq('session_number', currentSession)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (sessionRecord) {
+        if (!sessionRecord) {
+          // If no session exists, create one
+          const { data: newSession, error: createError } = await supabase
+            .from('sessions')
+            .insert({
+              candidate_name: candidateName,
+              session_number: currentSession,
+              session_id: String(currentSession),
+              block_data: [] as Json,
+              current_block: 1
+            })
+            .select()
+            .single();
+
+          if (createError) throw createError;
+
+          if (newSession) {
+            setSessionData(prev => ({
+              ...prev,
+              sessionId: newSession.session_id || String(currentSession),
+              impedanceH: newSession.impedance_h || "",
+              impedanceL: newSession.impedance_l || "",
+            }));
+          }
+        } else {
+          // Use existing session data
           const storedData = localStorage.getItem(STORAGE_KEY);
           const localBlocks = storedData ? 
             JSON.parse(storedData)[candidateName]?.[currentSession]?.blocks || [] 
@@ -65,6 +91,11 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         }
       } catch (error) {
         console.error('Error loading session data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load session data",
+          variant: "destructive"
+        });
       }
     };
 
