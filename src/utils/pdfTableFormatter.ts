@@ -26,6 +26,13 @@ export const drawTable = (doc: jsPDF, data: string[][], startY: number, config: 
       const textWidth = doc.getStringUnitWidth(cell) * fontSize / doc.internal.scaleFactor;
       const xOffset = (columnWidths[colIndex] - textWidth) / 2;
       
+      // Bold for header row
+      if (rowIndex === 0) {
+        doc.setFont("helvetica", "bold");
+      } else {
+        doc.setFont("helvetica", "normal");
+      }
+      
       doc.text(cell, currentX + xOffset, currentY + (rowHeight / 1.5));
       
       // Draw cell borders

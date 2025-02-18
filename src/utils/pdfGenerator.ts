@@ -14,20 +14,23 @@ export const generateSessionPDF = (
   doc.setFontSize(16);
   doc.text("Clinical Session Report", 105, yPosition, { align: "center" });
   
-  // Basic Info Table
+  // Basic Info Table - Restructured for vertical layout
   yPosition += 15;
   const basicInfoData = [
-    ["Candidate", selectedCandidate],
-    ["Date", new Date().toLocaleDateString()],
-    ["Session", String(currentSession.sessionNumber).padStart(2, '0')],
-    ["Session ID", currentSession.sessionId],
-    ["High (H)", currentSession.impedanceH],
-    ["Low (L)", currentSession.impedanceL]
+    ["Candidate", "Date", "Session", "Session ID", "High (H)", "Low (L)"],
+    [
+      selectedCandidate,
+      new Date().toLocaleDateString(),
+      String(currentSession.sessionNumber).padStart(2, '0'),
+      currentSession.sessionId,
+      currentSession.impedanceH,
+      currentSession.impedanceL
+    ]
   ];
 
   yPosition = drawTable(doc, basicInfoData, yPosition, {
-    columnWidths: [40, 70],
-    rowHeight: 8,
+    columnWidths: [30, 30, 25, 40, 30, 30],
+    rowHeight: 10,
     fontSize: 10
   });
 
