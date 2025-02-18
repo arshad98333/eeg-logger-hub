@@ -203,17 +203,39 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
     // Update Supabase
     try {
-      const { error } = await supabase
+      // First check if session exists
+      const { data: existingSession } = await supabase
         .from('sessions')
-        .upsert({
-          candidate_name: candidateName,
-          session_number: currentSession,
-          session_id: sessionData.sessionId,
-          block_data: blockDataForSupabase,
-          current_block: index + 1
-        });
+        .select('id')
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingSession) {
+        // Update existing session
+        const { error } = await supabase
+          .from('sessions')
+          .update({
+            block_data: blockDataForSupabase,
+            current_block: index + 1
+          })
+          .eq('id', existingSession.id);
+
+        if (error) throw error;
+      } else {
+        // Create new session
+        const { error } = await supabase
+          .from('sessions')
+          .insert({
+            candidate_name: candidateName,
+            session_number: currentSession,
+            session_id: sessionData.sessionId,
+            block_data: blockDataForSupabase,
+            current_block: index + 1
+          });
+
+        if (error) throw error;
+      }
     } catch (error) {
       console.error('Error updating session:', error);
       toast({
