@@ -20,26 +20,30 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       const allSessions = JSON.parse(stored);
       const candidateData = allSessions[candidateName];
       if (candidateData && candidateData[initialSession]) {
-        return candidateData[initialSession];
+        return {
+          ...candidateData[initialSession],
+          candidateName,
+          sessionNumber: initialSession,
+          blocks: candidateData[initialSession].blocks || []
+        };
       }
     }
     
     return {
       candidateName,
       sessionNumber: initialSession,
-      sessionId: currentSession === 1 ? "1" : "0",
+      sessionId: initialSession === 1 ? "1" : "0",
       impedanceH: "",
       impedanceL: "",
       blocks: []
     };
   });
-  
+
   const { toast } = useToast();
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // First try to get existing session
         const { data: existingSession, error: fetchError } = await supabase
           .from('sessions')
           .select('*')
@@ -49,58 +53,26 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
         if (fetchError) throw fetchError;
 
-        if (!existingSession) {
-          // Check if session with this candidate and number exists using count
-          const { count, error: countError } = await supabase
-            .from('sessions')
-            .select('*', { count: 'exact', head: true })
-            .eq('candidate_name', candidateName)
-            .eq('session_number', currentSession);
-
-          if (countError) throw countError;
-
-          // Only create if no session exists
-          if (count === 0) {
-            const { data: newSession, error: createError } = await supabase
-              .from('sessions')
-              .upsert({
-                candidate_name: candidateName,
-                session_number: currentSession,
-                session_id: String(currentSession),
-                block_data: [] as Json,
-                current_block: 1
-              })
-              .select()
-              .maybeSingle();
-
-            if (createError) {
-              console.error('Error creating session:', createError);
-              return;
-            }
-
-            if (newSession) {
-              setSessionData(prev => ({
-                ...prev,
-                sessionId: newSession.session_id || String(currentSession),
-                impedanceH: newSession.impedance_h || "",
-                impedanceL: newSession.impedance_l || "",
-              }));
-            }
-          }
-        } else {
-          // Use existing session data
-          const storedData = localStorage.getItem(STORAGE_KEY);
-          const localBlocks = storedData ? 
-            JSON.parse(storedData)[candidateName]?.[currentSession]?.blocks || [] 
-            : [];
-
-          setSessionData(prev => ({
-            ...prev,
+        if (existingSession) {
+          // Load data from Supabase and update both state and localStorage
+          const newSessionData = {
+            ...sessionData,
             sessionId: existingSession.session_id || String(currentSession),
             impedanceH: existingSession.impedance_h || "",
             impedanceL: existingSession.impedance_l || "",
-            blocks: localBlocks
-          }));
+            blocks: sessionData.blocks
+          };
+
+          setSessionData(newSessionData);
+
+          // Update localStorage
+          const stored = localStorage.getItem(STORAGE_KEY);
+          const allSessions = stored ? JSON.parse(stored) : {};
+          if (!allSessions[candidateName]) {
+            allSessions[candidateName] = {};
+          }
+          allSessions[candidateName][currentSession] = newSessionData;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
         }
       } catch (error) {
         console.error('Error loading session data:', error);
@@ -289,6 +261,16 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Save to localStorage
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const allSessions = stored ? JSON.parse(stored) : {};
+    if (!allSessions[candidateName]) {
+      allSessions[candidateName] = {};
+    }
+    allSessions[candidateName][currentSession] = sessionData;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+    
     onSave(sessionData);
   };
 

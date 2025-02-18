@@ -17,6 +17,41 @@ export const SessionInfo = ({
   candidateName, 
   currentSession 
 }: SessionInfoProps) => {
+  const handleInputChange = async (field: 'impedanceH' | 'impedanceL', value: string) => {
+    const newData = { ...sessionData, [field]: value };
+    onSessionDataChange(newData);
+    
+    try {
+      // Save to Supabase
+      await supabase
+        .from('sessions')
+        .update({
+          [field === 'impedanceH' ? 'impedance_h' : 'impedance_l']: value
+        })
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession);
+
+      // Save to localStorage
+      const stored = localStorage.getItem("clinical-session-data");
+      if (stored) {
+        const allSessions = JSON.parse(stored);
+        if (!allSessions[candidateName]) {
+          allSessions[candidateName] = {};
+        }
+        if (!allSessions[candidateName][currentSession]) {
+          allSessions[candidateName][currentSession] = {};
+        }
+        allSessions[candidateName][currentSession] = {
+          ...allSessions[candidateName][currentSession],
+          [field]: value
+        };
+        localStorage.setItem("clinical-session-data", JSON.stringify(allSessions));
+      }
+    } catch (error) {
+      console.error(`Error updating ${field}:`, error);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h4 className="text-lg font-medium text-clinical-800">Session Information</h4>
@@ -51,40 +86,7 @@ export const SessionInfo = ({
             id="impedanceH"
             placeholder="H-value"
             value={sessionData.impedanceH}
-            onChange={(e) => {
-              const newData = { ...sessionData, impedanceH: e.target.value };
-              onSessionDataChange(newData);
-              
-              // Save to Supabase
-              try {
-                supabase
-                  .from('sessions')
-                  .update({
-                    impedance_h: e.target.value
-                  })
-                  .eq('candidate_name', candidateName)
-                  .eq('session_number', currentSession);
-
-                // Save to localStorage
-                const stored = localStorage.getItem("clinical-session-data");
-                if (stored) {
-                  const allSessions = JSON.parse(stored);
-                  if (!allSessions[candidateName]) {
-                    allSessions[candidateName] = {};
-                  }
-                  if (!allSessions[candidateName][currentSession]) {
-                    allSessions[candidateName][currentSession] = {};
-                  }
-                  allSessions[candidateName][currentSession] = {
-                    ...allSessions[candidateName][currentSession],
-                    impedanceH: e.target.value
-                  };
-                  localStorage.setItem("clinical-session-data", JSON.stringify(allSessions));
-                }
-              } catch (error) {
-                console.error('Error updating impedance H:', error);
-              }
-            }}
+            onChange={(e) => handleInputChange('impedanceH', e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -93,40 +95,7 @@ export const SessionInfo = ({
             id="impedanceL"
             placeholder="L-value"
             value={sessionData.impedanceL}
-            onChange={(e) => {
-              const newData = { ...sessionData, impedanceL: e.target.value };
-              onSessionDataChange(newData);
-              
-              // Save to Supabase
-              try {
-                supabase
-                  .from('sessions')
-                  .update({
-                    impedance_l: e.target.value
-                  })
-                  .eq('candidate_name', candidateName)
-                  .eq('session_number', currentSession);
-
-                // Save to localStorage
-                const stored = localStorage.getItem("clinical-session-data");
-                if (stored) {
-                  const allSessions = JSON.parse(stored);
-                  if (!allSessions[candidateName]) {
-                    allSessions[candidateName] = {};
-                  }
-                  if (!allSessions[candidateName][currentSession]) {
-                    allSessions[candidateName][currentSession] = {};
-                  }
-                  allSessions[candidateName][currentSession] = {
-                    ...allSessions[candidateName][currentSession],
-                    impedanceL: e.target.value
-                  };
-                  localStorage.setItem("clinical-session-data", JSON.stringify(allSessions));
-                }
-              } catch (error) {
-                console.error('Error updating impedance L:', error);
-              }
-            }}
+            onChange={(e) => handleInputChange('impedanceL', e.target.value)}
           />
         </div>
       </div>
