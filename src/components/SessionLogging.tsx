@@ -55,17 +55,19 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
         if (existingSession) {
           // Load data from Supabase and update both state and localStorage
+          const blocks = existingSession.block_data ? existingSession.block_data as Block[] : [];
+          
           const newSessionData = {
             ...sessionData,
             sessionId: existingSession.session_id || String(currentSession),
             impedanceH: existingSession.impedance_h || "",
             impedanceL: existingSession.impedance_l || "",
-            blocks: sessionData.blocks
+            blocks: blocks
           };
 
           setSessionData(newSessionData);
 
-          // Update localStorage
+          // Update localStorage with session-specific data
           const stored = localStorage.getItem(STORAGE_KEY);
           const allSessions = stored ? JSON.parse(stored) : {};
           if (!allSessions[candidateName]) {
@@ -73,6 +75,16 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           }
           allSessions[candidateName][currentSession] = newSessionData;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
+        } else {
+          // Initialize new session with empty blocks
+          setSessionData(prev => ({
+            ...prev,
+            sessionNumber: currentSession,
+            sessionId: currentSession === 1 ? "1" : "0",
+            impedanceH: "",
+            impedanceL: "",
+            blocks: []
+          }));
         }
       } catch (error) {
         console.error('Error loading session data:', error);
@@ -87,6 +99,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     loadData();
   }, [candidateName, currentSession]);
 
+  const handleSessionChange = (direction: 'next' | 'prev') => {
+    if (direction === 'next' && currentSession < 14) {
+      setCurrentSession(prev => prev + 1);
+    } else if (direction === 'prev' && currentSession > 1) {
+      setCurrentSession(prev => prev - 1);
+    }
+  };
+
   const handleAddBlock = () => {
     if (sessionData.blocks.length >= MAX_BLOCKS_PER_SESSION) {
       toast({
@@ -97,9 +117,9 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       return;
     }
 
-    const newBlock = { startTime: "", endTime: "", notes: "", isRecording: false };
+    const newBlock: Block = { startTime: "", endTime: "", notes: "", isRecording: false };
     
-    // Update localStorage
+    // Update localStorage with session-specific blocks
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
@@ -127,7 +147,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       isRecording: block.isRecording
     })) as Json;
 
-    // Update Supabase
+    // Update Supabase with session-specific blocks
     supabase
       .from('sessions')
       .upsert({
@@ -140,14 +160,14 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       });
   };
 
-  const handleBlockChange = async (index: number, field: "startTime" | "endTime" | "notes" | "isRecording", value: any) => {
+  const handleBlockChange = async (index: number, field: keyof Block, value: any) => {
     const newBlocks = [...sessionData.blocks];
     newBlocks[index] = {
       ...newBlocks[index],
       [field]: value,
     };
 
-    // Update local state and localStorage
+    // Update local state and localStorage with session-specific blocks
     const newSessionData = {
       ...sessionData,
       blocks: newBlocks
@@ -172,7 +192,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       isRecording: block.isRecording
     })) as Json;
 
-    // Update Supabase using upsert
+    // Update Supabase with session-specific blocks
     try {
       const { error } = await supabase
         .from('sessions')
@@ -185,8 +205,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
             current_block: index + 1
           },
           {
-            onConflict: 'candidate_name,session_number',
-            ignoreDuplicates: false
+            onConflict: 'candidate_name,session_number'
           }
         );
 
@@ -248,14 +267,6 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         description: "Failed to complete shift",
         variant: "destructive"
       });
-    }
-  };
-
-  const handleSessionChange = (direction: 'next' | 'prev') => {
-    if (direction === 'next' && currentSession < 14) {
-      setCurrentSession(prev => prev + 1);
-    } else if (direction === 'prev' && currentSession > 1) {
-      setCurrentSession(prev => prev - 1);
     }
   };
 
