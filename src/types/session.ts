@@ -1,5 +1,5 @@
 
-export const MAX_BLOCKS_PER_SESSION = 6;
+export const MAX_BLOCKS_PER_SESSION = 7;
 export const MAX_SESSIONS = 14;
 
 export interface Block {
