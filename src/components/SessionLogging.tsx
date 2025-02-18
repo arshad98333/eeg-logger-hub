@@ -54,14 +54,19 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         if (fetchError) throw fetchError;
 
         if (existingSession) {
-          const blocks = existingSession.block_data ? existingSession.block_data as Block[] : [];
+          const blocks = existingSession.block_data ? (existingSession.block_data as any[]).map(block => ({
+            startTime: block.startTime || "",
+            endTime: block.endTime || "",
+            notes: block.notes || "",
+            isRecording: block.isRecording || false
+          })) : [];
           
           const newSessionData = {
             ...sessionData,
             sessionId: existingSession.session_id || String(currentSession),
             impedanceH: existingSession.impedance_h || "",
             impedanceL: existingSession.impedance_l || "",
-            blocks: blocks
+            blocks
           };
 
           setSessionData(newSessionData);
@@ -104,7 +109,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     }
   };
 
-  const handleAddBlock = () => {
+  const handleAddBlock = async () => {
     if (sessionData.blocks.length >= MAX_BLOCKS_PER_SESSION) {
       toast({
         title: "Maximum Blocks Reached",
@@ -135,46 +140,50 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       blocks: updatedBlocks
     }));
 
-    const blockDataForSupabase = updatedBlocks.map(block => ({
-      startTime: block.startTime,
-      endTime: block.endTime,
-      notes: block.notes,
-      isRecording: block.isRecording
-    }));
+    try {
+      const { data: existingSession } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('candidate_name', candidateName)
+        .eq('session_number', currentSession)
+        .maybeSingle();
 
-    supabase
-      .from('sessions')
-      .select('id')
-      .eq('candidate_name', candidateName)
-      .eq('session_number', currentSession)
-      .maybeSingle()
-      .then(({ data: existingSession, error: checkError }) => {
-        if (checkError) throw checkError;
+      const blockDataForSupabase = updatedBlocks.map(block => ({
+        startTime: block.startTime,
+        endTime: block.endTime,
+        notes: block.notes,
+        isRecording: block.isRecording
+      }));
 
-        if (existingSession) {
-          return supabase
-            .from('sessions')
-            .update({
-              block_data: blockDataForSupabase
-            })
-            .eq('candidate_name', candidateName)
-            .eq('session_number', currentSession);
-        } else {
-          return supabase
-            .from('sessions')
-            .insert({
-              candidate_name: candidateName,
-              session_number: currentSession,
-              block_data: blockDataForSupabase
-            });
-        }
-      })
-      .then(({ error }) => {
-        if (error) console.error('Error updating Supabase:', error);
-      })
-      .catch(error => {
-        console.error('Error handling session update:', error);
+      if (existingSession) {
+        const { error: updateError } = await supabase
+          .from('sessions')
+          .update({
+            block_data: blockDataForSupabase
+          })
+          .eq('candidate_name', candidateName)
+          .eq('session_number', currentSession);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('sessions')
+          .insert({
+            candidate_name: candidateName,
+            session_number: currentSession,
+            block_data: blockDataForSupabase
+          });
+
+        if (insertError) throw insertError;
+      }
+    } catch (error) {
+      console.error('Error handling session update:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update session data",
+        variant: "destructive"
       });
+    }
   };
 
   const handleBlockChange = async (index: number, field: keyof Block, value: any) => {
