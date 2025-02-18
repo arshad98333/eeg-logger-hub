@@ -30,13 +30,6 @@ export const SessionSharing = ({
     doc.save(`${selectedCandidate}-session-${sessionData.sessionNumber}.pdf`);
   };
 
-  const handleSharePDFViaWhatsApp = () => {
-    if (!selectedCandidate || !sessionData) return;
-    const doc = generateSessionPDF(selectedCandidate, sessionData);
-    const pdfData = doc.output('datauristring');
-    window.open(`https://wa.me/?text=${encodeURIComponent('Clinical Session Report')}&document=${encodeURIComponent(pdfData)}`, '_blank');
-  };
-
   return (
     <div className="flex gap-4 justify-end mt-6">
       <Button 
@@ -51,13 +44,6 @@ export const SessionSharing = ({
         onClick={handleDownloadPDF}
       >
         Download as PDF
-      </Button>
-
-      <Button 
-        variant="outline" 
-        onClick={handleSharePDFViaWhatsApp}
-      >
-        Share PDF via WhatsApp
       </Button>
 
       {isAllSessionsCompleted && (
