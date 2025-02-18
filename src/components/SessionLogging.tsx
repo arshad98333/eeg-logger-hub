@@ -41,38 +41,52 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     const loadData = async () => {
       try {
         // First try to get existing session
-        const { data: sessionRecord, error } = await supabase
+        const { data: existingSession, error: fetchError } = await supabase
           .from('sessions')
           .select('*')
           .eq('candidate_name', candidateName)
           .eq('session_number', currentSession)
           .maybeSingle();
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
 
-        if (!sessionRecord) {
-          // If no session exists, create one
-          const { data: newSession, error: createError } = await supabase
+        if (!existingSession) {
+          // Check if session with this candidate and number exists using count
+          const { count, error: countError } = await supabase
             .from('sessions')
-            .insert({
-              candidate_name: candidateName,
-              session_number: currentSession,
-              session_id: String(currentSession),
-              block_data: [] as Json,
-              current_block: 1
-            })
-            .select()
-            .single();
+            .select('*', { count: 'exact', head: true })
+            .eq('candidate_name', candidateName)
+            .eq('session_number', currentSession);
 
-          if (createError) throw createError;
+          if (countError) throw countError;
 
-          if (newSession) {
-            setSessionData(prev => ({
-              ...prev,
-              sessionId: newSession.session_id || String(currentSession),
-              impedanceH: newSession.impedance_h || "",
-              impedanceL: newSession.impedance_l || "",
-            }));
+          // Only create if no session exists
+          if (count === 0) {
+            const { data: newSession, error: createError } = await supabase
+              .from('sessions')
+              .upsert({
+                candidate_name: candidateName,
+                session_number: currentSession,
+                session_id: String(currentSession),
+                block_data: [] as Json,
+                current_block: 1
+              })
+              .select()
+              .maybeSingle();
+
+            if (createError) {
+              console.error('Error creating session:', createError);
+              return;
+            }
+
+            if (newSession) {
+              setSessionData(prev => ({
+                ...prev,
+                sessionId: newSession.session_id || String(currentSession),
+                impedanceH: newSession.impedance_h || "",
+                impedanceL: newSession.impedance_l || "",
+              }));
+            }
           }
         } else {
           // Use existing session data
@@ -83,9 +97,9 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
           setSessionData(prev => ({
             ...prev,
-            sessionId: sessionRecord.session_id || String(currentSession),
-            impedanceH: sessionRecord.impedance_h || "",
-            impedanceL: sessionRecord.impedance_l || "",
+            sessionId: existingSession.session_id || String(currentSession),
+            impedanceH: existingSession.impedance_h || "",
+            impedanceL: existingSession.impedance_l || "",
             blocks: localBlocks
           }));
         }
