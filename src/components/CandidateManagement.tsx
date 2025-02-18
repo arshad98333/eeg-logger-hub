@@ -36,7 +36,7 @@ const PREDEFINED_CANDIDATES = [
   "Sagar"
 ];
 
-const ADMIN_PASSWORD = "Shamoon";
+const ADMIN_PASSWORD = "eeglab2024";
 
 export const CandidateManagement = ({
   onSelectCandidate,
@@ -53,7 +53,7 @@ export const CandidateManagement = ({
     if (password !== ADMIN_PASSWORD) {
       toast({
         title: "Error",
-        description: "Incorrect password",
+        description: "Incorrect admin password",
         variant: "destructive",
       });
       return;
@@ -75,7 +75,7 @@ export const CandidateManagement = ({
           candidate_name: newName.trim(),
           session_number: 1,
           started_at: new Date().toISOString(),
-          user_id: 'default'  // Using 'default' as we don't have authentication
+          user_id: 'default'
         })
         .select()
         .single();
