@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -201,41 +200,25 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       isRecording: block.isRecording
     })) as Json;
 
-    // Update Supabase
+    // Update Supabase using upsert
     try {
-      // First check if session exists
-      const { data: existingSession } = await supabase
+      const { error } = await supabase
         .from('sessions')
-        .select('id')
-        .eq('candidate_name', candidateName)
-        .eq('session_number', currentSession)
-        .maybeSingle();
-
-      if (existingSession) {
-        // Update existing session
-        const { error } = await supabase
-          .from('sessions')
-          .update({
-            block_data: blockDataForSupabase,
-            current_block: index + 1
-          })
-          .eq('id', existingSession.id);
-
-        if (error) throw error;
-      } else {
-        // Create new session
-        const { error } = await supabase
-          .from('sessions')
-          .insert({
+        .upsert(
+          {
             candidate_name: candidateName,
             session_number: currentSession,
             session_id: sessionData.sessionId,
             block_data: blockDataForSupabase,
             current_block: index + 1
-          });
+          },
+          {
+            onConflict: 'candidate_name,session_number',
+            ignoreDuplicates: false
+          }
+        );
 
-        if (error) throw error;
-      }
+      if (error) throw error;
     } catch (error) {
       console.error('Error updating session:', error);
       toast({
