@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { SessionHeader } from "./session/SessionHeader";
 import { SessionInfo } from "./session/SessionInfo";
 import { SessionData, SessionLoggingProps, MAX_BLOCKS_PER_SESSION, Block } from "@/types/session";
 import { Plus } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 
 const STORAGE_KEY = "clinical-session-data";
 
@@ -81,6 +83,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
     const newBlock = { startTime: "", endTime: "", notes: "", isRecording: false };
     
+    // Update localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
@@ -100,12 +103,21 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       blocks: updatedBlocks
     }));
 
+    // Convert blocks to JSON compatible format for Supabase
+    const blockDataForSupabase = updatedBlocks.map(block => ({
+      startTime: block.startTime,
+      endTime: block.endTime,
+      notes: block.notes,
+      isRecording: block.isRecording
+    })) as Json;
+
+    // Update Supabase
     supabase
       .from('sessions')
       .upsert({
         candidate_name: candidateName,
         session_number: currentSession,
-        block_data: updatedBlocks
+        block_data: blockDataForSupabase
       })
       .then(({ error }) => {
         if (error) console.error('Error updating Supabase:', error);
@@ -119,6 +131,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
       [field]: value,
     };
 
+    // Update local state and localStorage
     const newSessionData = {
       ...sessionData,
       blocks: newBlocks
@@ -126,6 +139,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     
     setSessionData(newSessionData);
 
+    // Update localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSessions = stored ? JSON.parse(stored) : {};
     if (!allSessions[candidateName]) {
@@ -134,6 +148,15 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
     allSessions[candidateName][currentSession] = newSessionData;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSessions));
 
+    // Convert blocks to JSON compatible format for Supabase
+    const blockDataForSupabase = newBlocks.map(block => ({
+      startTime: block.startTime,
+      endTime: block.endTime,
+      notes: block.notes,
+      isRecording: block.isRecording
+    })) as Json;
+
+    // Update Supabase
     try {
       const { error } = await supabase
         .from('sessions')
@@ -141,7 +164,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
           candidate_name: candidateName,
           session_number: currentSession,
           session_id: sessionData.sessionId,
-          block_data: newBlocks,
+          block_data: blockDataForSupabase,
           current_block: index + 1
         });
 
