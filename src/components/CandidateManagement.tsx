@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Select,
   SelectContent,
@@ -45,7 +45,34 @@ export const CandidateManagement = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [password, setPassword] = useState("");
   const [newName, setNewName] = useState("");
+  const [candidates, setCandidates] = useState<string[]>(PREDEFINED_CANDIDATES);
   const { toast } = useToast();
+
+  const fetchCandidates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('candidate_name')
+        .order('candidate_name');
+
+      if (error) throw error;
+
+      const uniqueCandidates = Array.from(
+        new Set([
+          ...PREDEFINED_CANDIDATES,
+          ...(data?.map(session => session.candidate_name) || [])
+        ])
+      ).sort();
+
+      setCandidates(uniqueCandidates);
+    } catch (error) {
+      console.error('Error fetching candidates:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCandidates();
+  }, []);
 
   const handleAddNewCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +114,7 @@ export const CandidateManagement = ({
         shift: "6:00 AM - 2:00 PM"
       });
 
+      await fetchCandidates(); // Refresh the candidates list
       setShowAddForm(false);
       setNewName("");
       setPassword("");
@@ -124,7 +152,7 @@ export const CandidateManagement = ({
             <SelectValue placeholder="Select a candidate" />
           </SelectTrigger>
           <SelectContent>
-            {PREDEFINED_CANDIDATES.map((candidate) => (
+            {candidates.map((candidate) => (
               <SelectItem key={candidate} value={candidate}>
                 {candidate}
               </SelectItem>
