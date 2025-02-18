@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { SessionHeader } from "./session/SessionHeader";
 import { SessionInfo } from "./session/SessionInfo";
-import { SessionData, SessionLoggingProps, MAX_BLOCKS_PER_SESSION } from "@/types/session";
+import { SessionData, SessionLoggingProps, MAX_BLOCKS_PER_SESSION, Block } from "@/types/session";
 import { Plus } from "lucide-react";
 
 const STORAGE_KEY = "clinical-session-data";
