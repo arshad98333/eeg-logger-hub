@@ -271,17 +271,27 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
 
       if (updateError) throw updateError;
 
-      const { error: insertError } = await supabase
+      const { data: existingSession } = await supabase
         .from('sessions')
-        .insert({
-          candidate_name: candidateName,
-          session_number: 1,
-          session_id: sessionData.sessionId.toString(),
-          current_block: 1,
-          started_at: new Date().toISOString()
-        });
+        .select('*')
+        .eq('candidate_name', candidateName)
+        .eq('session_number', 1)
+        .maybeSingle();
 
-      if (insertError) throw insertError;
+      if (!existingSession) {
+        const { error: insertError } = await supabase
+          .from('sessions')
+          .insert({
+            candidate_name: candidateName,
+            session_number: 1,
+            session_id: sessionData.sessionId.toString(),
+            current_block: 1,
+            started_at: new Date().toISOString(),
+            block_data: []
+          });
+
+        if (insertError) throw insertError;
+      }
 
       setCurrentSession(1);
       setSessionData({
@@ -290,7 +300,7 @@ export const SessionLogging = ({ candidateName, sessionNumber: initialSession, o
         sessionId: sessionData.sessionId,
         impedanceH: "",
         impedanceL: "",
-        blocks: Array(14).fill({ startTime: "", endTime: "", notes: "", isRecording: false })
+        blocks: []
       });
 
       toast({
